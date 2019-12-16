@@ -1,0 +1,21 @@
+G_2 = the family has two girls
+G_1 = the family has two boys
+G_3 = the family has three girls
+G_0 = the family has three boys
+
+P(G_2) = 3 * (1/2)^2(1/2) = 3/8
+P(G_1) = 3 * (1/2)(1/2)^2 = 3/8
+P(G_0) = 1/8
+P(G_3) = 1/8
+
+P(A1G) = 7/8
+P(A1B) = 7/8
+P(A1B | A1G) = 3/4
+P(G_2 | A1G) = P(A1G | G_2) P(G_2) / P(A1G)
+             = (3/8) / (7/8)
+             = 3/7
+P(G_1 | A1G) = 3/7
+P(G_2 | A1B, A1G) = P(A1B | G_2, A1G) P(G_2 | A1G) / P(A1B | A1G)
+                  = (3/7) / (3/4)
+                  = 4/7
+P(G_1 | A1B, A1G) = 

@@ -1,0 +1,12 @@
+# To Do List
+- [ ] Get our cloud credits
+- [ ] Chromatin accessibility predictor
+    - [ ] Load their HDF5 files
+- [ ] TF binding predictor for CTCF / FOXA1
+    - [ ] Code to load and format ENCODE TF data for CTCF / FOXA1
+- [ ] IV selector code
+    - [ ] Find good sequences to use
+        - Option 1: randomly sample sequences and then make the most salient mutation
+        - Option 2: choose sequences based on non-CTCF / FOXA1 TF motifs
+    - [ ] Find good mutations to make
+- [ ] Causal effect math / code

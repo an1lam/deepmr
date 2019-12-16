@@ -1,0 +1,2 @@
+# Auto-formatting
+All Python files in this repo are auto-formatted using the wonderful, bike shed destroying [black](https://github.com/psf/black) Python code formatter combined with [isort](https://github.com/timothycrosley/isort) for import formatting. See [this talk](https://inst.eecs.berkeley.edu/~cs294-101/sp15/slides/Go.pdf) for the justification behind using deterministic, automatic code and import formatting.
