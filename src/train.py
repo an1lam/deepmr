@@ -1,20 +1,17 @@
 import argparse
 import logging
-import timeit
 import os
+import timeit
 
 import numpy as np
 import torch
 import torch.nn.functional as F
 import torch.utils.data
 
-from data_loader import BedPeaksDataset
-from data_loader import load_binding_data
-from data_loader import load_genome
-from models import CNN_1d
-from models import get_big_cnn
-from models import get_default_cnn
+from data_loader import BedPeaksDataset, load_binding_data, load_genome
+from models import CNN_1d, get_big_cnn, get_default_cnn
 from utils import detect_device
+
 
 def test_model( test_dataset, cnn_1d,):
     """
@@ -63,4 +60,3 @@ def run_one_epoch(train_flag, dataloader, cnn_1d, optimizer, device="cuda"):
         accuracies.append(accuracy.detach().cpu().numpy())
 
     return (np.mean(losses), np.mean(accuracies))
-

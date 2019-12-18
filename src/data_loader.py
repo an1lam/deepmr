@@ -1,10 +1,10 @@
 import logging
-import numpy as np
 import os
 import pickle
-import torch
 
+import numpy as np
 import pandas as pd
+import torch
 
 from pyx.one_hot import one_hot
 

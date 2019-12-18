@@ -16,16 +16,10 @@ import numpy as np
 import pandas as pd
 import torch
 
-from data_loader import BedPeaksDataset
-from data_loader import load_genome
-from data_loader import load_peak_data
+from data_loader import BedPeaksDataset, load_genome, load_peak_data
 from interpret import find_best_mutation
-from models import get_big_cnn
-from models import get_default_cnn
-from utils import INT_TO_BASES
-from utils import detect_device
-from utils import load_model
-from utils import one_hot_decode
+from models import get_big_cnn, get_default_cnn
+from utils import INT_TO_BASES, detect_device, load_model, one_hot_decode
 
 
 def _convert_to_mutation(pos_nt_pair):

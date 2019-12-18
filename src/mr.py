@@ -3,15 +3,15 @@ import logging
 import math
 import os
 
-from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy.special
 import sklearn.linear_model
-import statsmodels.api as sm
-from statsmodels.sandbox.regression.predstd import wls_prediction_std
+from matplotlib import pyplot as plt
 
+import statsmodels.api as sm
 from data_loader import load_iv_candidates
+from statsmodels.sandbox.regression.predstd import wls_prediction_std
 
 
 def trunc(values, decs=0):
