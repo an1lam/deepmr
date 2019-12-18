@@ -10,7 +10,7 @@ def main():
     path = sys.argv[1]
     title = sys.argv[2]
     df = pd.read_csv(path)
-    df2 = pd.DataFrame()
+    pd.DataFrame()
     # df2['tf_init'] = scipy.special.logit(df['initial TF prediction'])
     # df2['tf_new'] = scipy.special.logit(df['new TF prediction'])
     # df2['chrom_init'] = scipy.special.logit(df['initial chromatin prediction'])

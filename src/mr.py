@@ -93,8 +93,8 @@ def compute_two_stage_least_squares(iv_candidate_df, with_plots=False, verbose=F
 
     tf_X_neg_exs = np.zeros_like(tf_y_neg_exs)
     tf_X_pos_exs = np.ones_like(tf_y_pos_exs)
-    acc_X_neg_exs = np.zeros_like(acc_y_neg_exs)
-    acc_X_pos_exs = np.zeros_like(acc_y_pos_exs)
+    np.zeros_like(acc_y_neg_exs)
+    np.zeros_like(acc_y_pos_exs)
 
     tf_X = np.concatenate((tf_X_neg_exs, tf_X_pos_exs))
     tf_y = np.concatenate((tf_y_neg_exs, tf_y_pos_exs))

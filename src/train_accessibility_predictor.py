@@ -8,8 +8,11 @@ import torch
 import torch.nn.functional as F
 import torch.utils.data
 
-from data_loader import BedPeaksDataset, load_accessibility_data, load_genome
-from models import CNN_1d, get_big_cnn, get_default_cnn
+from data_loader import BedPeaksDataset
+from data_loader import load_accessibility_data
+from data_loader import load_genome
+from models import CNN_1d
+from models import get_big_cnn
 from train import test_model
 from utils import detect_device, load_model
 
@@ -137,7 +140,7 @@ def main(args):
 
     elif args.mode == "test":
         model = load_model(args, args.model_file_path, model)
-        test_chroms = args.test_chroms
+        args.test_chroms
         test_data = load_accessibility_data(args.data_dir, args.test_chroms, args.accessibility_file, verbose=True)
         print(test_data.head())
         print(len(test_data))

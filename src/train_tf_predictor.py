@@ -133,7 +133,7 @@ def main(args):
         torch.save(model.state_dict(), model_file_path)
     elif args.mode == "test":
         model = load_model(args, args.model_file_path, model)
-        test_chroms = args.test_chroms
+        args.test_chroms
         test_data = load_binding_data(args.data_dir, args.test_chroms, args.binding_file, verbose=True)
         test_dataset = BedPeaksDataset(test_data, genome, model.seq_len)
         model_file_path = os.path.join(args.data_dir, args.model_file_path)

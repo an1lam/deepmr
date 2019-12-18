@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-import math
 import pickle
-import timeit
 
 import logomaker
 import matplotlib.pyplot as plt
