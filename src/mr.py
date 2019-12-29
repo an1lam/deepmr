@@ -2,6 +2,7 @@ import argparse
 import logging
 import math
 import os
+import torch
 
 import numpy as np
 import pandas as pd
@@ -38,10 +39,10 @@ def regress_y_on_x(X, y):
 
 
 def compute_wald_ratio(iv_candidate_df):
-    tf_y_neg_exs = iv_candidate_df["initial TF prediction"].values
-    tf_y_pos_exs = iv_candidate_df["new TF prediction"].values
-    acc_y_neg_exs = iv_candidate_df["initial chromatin prediction"].values
-    acc_y_pos_exs = iv_candidate_df["new chromatin prediction"].values
+    tf_y_neg_exs = iv_candidate_df["initial X prediction"].values
+    tf_y_pos_exs = iv_candidate_df["new X prediction"].values
+    acc_y_neg_exs = iv_candidate_df["initial Y prediction"].values
+    acc_y_pos_exs = iv_candidate_df["new Y prediction"].values
 
     X_neg_exs = np.zeros_like(tf_y_neg_exs)
     X_pos_exs = np.ones_like(tf_y_pos_exs)
@@ -86,10 +87,10 @@ def plot_ols_result(result, X, y):
 
 
 def compute_two_stage_least_squares(iv_candidate_df, with_plots=False, verbose=False):
-    tf_y_neg_exs = iv_candidate_df["initial TF prediction"].values
-    tf_y_pos_exs = iv_candidate_df["new TF prediction"].values
-    acc_y_neg_exs = iv_candidate_df["initial chromatin prediction"].values
-    acc_y_pos_exs = iv_candidate_df["new chromatin prediction"].values
+    tf_y_neg_exs = iv_candidate_df["initial X prediction"].values
+    tf_y_pos_exs = iv_candidate_df["new X prediction"].values
+    acc_y_neg_exs = iv_candidate_df["initial Y prediction"].values
+    acc_y_pos_exs = iv_candidate_df["new Y prediction"].values
 
     tf_X_neg_exs = np.zeros_like(tf_y_neg_exs)
     tf_X_pos_exs = np.ones_like(tf_y_pos_exs)
@@ -100,15 +101,15 @@ def compute_two_stage_least_squares(iv_candidate_df, with_plots=False, verbose=F
     tf_y = np.concatenate((tf_y_neg_exs, tf_y_pos_exs))
     acc_y = np.concatenate((acc_y_neg_exs, acc_y_pos_exs))
 
-    stage_1_result = logistic_regress_y_on_x(tf_X, tf_y)
+    stage_1_result = regress_y_on_x(tf_X, tf_y)
 
     acc_X = stage_1_result.predict(sm.add_constant(tf_X))
     acc_X_pred = pd.Series(acc_X)
-    stage_2_result = logistic_regress_y_on_x(acc_X_pred, acc_y)
+    stage_2_result = regress_y_on_x(acc_X_pred, acc_y)
 
     if with_plots:
-        plot_logistic_regression_result(stage_1_result, tf_X, tf_y)
-        plot_logistic_regression_result(stage_2_result, acc_X, acc_y)
+        plot_ols_result(stage_1_result, tf_X, tf_y)
+        plot_ols_result(stage_2_result, acc_X, acc_y)
 
     if verbose:
         logging.info("Results of first regression:")

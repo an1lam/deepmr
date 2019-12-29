@@ -15,8 +15,8 @@ def main():
     fig.suptitle(fig_title)
     ax1, ax2 = ax[0, :]
     ax1.scatter(
-        df["initial TF prediction"],
-        df["new TF prediction"],
+        df["initial X prediction"],
+        df["new X prediction"],
         c="b",
         s=10,
         alpha=0.8,
@@ -27,8 +27,8 @@ def main():
     ax1.legend(loc="lower right")
     ax1.set_title("Effect of IV on exposure (prob scale)")
     ax2.scatter(
-        df["initial chromatin prediction"],
-        df["new chromatin prediction"],
+        df["initial Y prediction"],
+        df["new Y prediction"],
         c="b",
         s=10,
         alpha=0.8,
@@ -41,8 +41,8 @@ def main():
 
     ax3, ax4 = ax[1, :]
     ax3.scatter(
-        scipy.special.logit(df["initial TF prediction"]),
-        scipy.special.logit(df["new TF prediction"]),
+        scipy.special.logit(df["initial X prediction"]),
+        scipy.special.logit(df["new X prediction"]),
         c="b",
         s=10,
         alpha=0.8,
@@ -53,8 +53,8 @@ def main():
     ax3.legend(loc="lower right")
     ax3.set_title("Effect of IV on exposure (log-odds scale)")
     ax4.scatter(
-        scipy.special.logit(df["initial chromatin prediction"]),
-        scipy.special.logit(df["new chromatin prediction"]),
+        scipy.special.logit(df["initial Y prediction"]),
+        scipy.special.logit(df["new Y prediction"]),
         c="b",
         s=10,
         alpha=0.8,
