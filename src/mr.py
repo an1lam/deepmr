@@ -138,8 +138,7 @@ def do_mr_analysis(args):
     )
 
     logging.info(
-        "Confidence interval: intercept - %1.3f, coefficient - %1.3f",
-        *two_sls_result.conf_int(alpha=0.05, cols=None),
+        "Confidence interval: \n%r", two_sls_result.conf_int(alpha=0.05, cols=None)
     )
 
     wald_ratio, wald_ratio_se, pvalues = compute_wald_ratio(iv_candidate_df)
