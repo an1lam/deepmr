@@ -1,0 +1,24 @@
+\documentclass{report}
+%%\documentclass{article}
+%%\documentclass{scrreprt}
+%%\documentclass{scrarctl}
+\usepackage{amsmath}
+\usepackage{tikz}
+\usetikzlibrary{bayesnet}
+\usepackage[english]{babel}
+\usepackage{minutes}
+
+%%\usepackage{Evntlist}%\usepackage{Calendar}
+\title{Meeting Notes}
+\author{\LaTeXe}
+\minutesstyle{header = {list}} %or {table}, }
+
+\begin{document}
+\maketitle
+\tableofcontents
+\listoftasks
+
+\selectlanguage{english}
+\inputminutes{2020-01-21-meeting-notes}%A english minutes
+\inputminutes{2020-01-24-meeting-notes}%A english minutes
+\end{document}

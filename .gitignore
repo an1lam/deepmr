@@ -39,6 +39,8 @@
 *.synctex.gz
 *.synctex.gz(busy)
 *.pdfsync
+*.mtc
+*.minTsk
 
 ## Auxiliary and intermediate files from other packages:
 # algorithms
