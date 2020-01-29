@@ -1,0 +1,28 @@
+\begin{Minutes}{}
+%%\subtitle{}
+%%\moderation{}
+%%\minutetaker{}
+\participant{Stephen Malina}
+%%\missingExcused{}
+%%\missingNoExcuse{}
+\minutesdate{January 29, 2020}
+%%\starttime{}
+%%\endtime{}
+%%\cc{}
+\maketitle
+\topic{Kipoi Dropout Research}
+My current understanding is that, assuming DeepSea is a PyTorch model in Kipoi (will verify shortly), I should be able to run a simple function like the following to activate Dropout in the Kipoi model (\href{https://discuss.pytorch.org/t/dropout-at-test-time-in-densenet/6738}{source 1}, \href{https://discuss.pytorch.org/t/using-dropout-in-evaluation-mode/27721}{source 2}).
+
+\begin{lstlisting}
+def apply_dropout(m):
+    if type(m) == nn.Dropout:
+        m.train()
+
+model.eval()
+
+model.apply(apply_dropout)
+\end{lstlisting}
+
+This means that the next step is to figure out the best way to generate repeated predictions for the same sequence using Kipoi while ensuring that we use the same dropout mask on predictions for wild type and mutated sequences. Unfortunately, this most likely means we won't be able to use kipoi-interpret's out-of-box in-silico mutagenesis code.
+
+\end{Minutes}
