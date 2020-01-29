@@ -33,12 +33,9 @@ Assuming a uniform distribution over $ S $ seems like a strong assumption though
 \topic{Multi-DAG aggregation approach}
 Then we discussed an alternate that David had hinted at in which we treat each sequence as instantiating its own DAG and then try to aggregate the causal effects from each. The benefit of this approach is that it's conceptually clearer. The downside is that it's still not clear to me that it makes to only have one sample from each DAG. On the other hand, if we try to get multiple samples from each DAG, we run into the problem of there being no obvious way to impose a dimension on the space of possible mutations but it seems like IV methods typically assume there's one.
 
-\task Look into the methods Claudia mentioned may allow us to aggregate DAGs: TLME, IPTW, AIPTW (or AIPPW, I'm not sure).
-
 \topic{Deep IV approach}
 Finally, we discussed the Deep IV approach and Claudia mentioned that a bunch of people in Dave's lab are working on things related to Deep IV, including Victor.
 
-
-
+\task[done]{Stephen}{Look into approaches to aggregating DAGs such as IPTW, AIPPW, etc.}
 
 \end{Minutes}
