@@ -1,0 +1,41 @@
+\begin{Minutes}{}
+%%\subtitle{}
+%%\moderation{}
+%%\minutetaker{}
+\participant{Stephen Malina}
+%%\missingExcused{}
+%%\missingNoExcuse{}
+\minutesdate{January 30, 2020}
+%%\starttime{}
+%%\endtime{}
+%%\cc{}
+\maketitle
+\topic{DeepSea Uncertainty Estimates}
+Huzzah! I'm able to force DeepSEA to apply Dropout at evaluation time using the
+strategy I mentioned yesterday. That said, one thing that's not clear to me is
+whether it's OK that not every layer is using Dropout... For now, I'm going to
+assume it is and flag it as something to follow up on.
+
+Now, the next step is to figure out the best way to ensure that Kipoi uses the same Dropout mask for original and diff predictions. 
+
+\subtopic{Verifying that we don't need precision for classification}
+I found the \href{http://proceedings.mlr.press/v48/gal16-supp.pdf}{appendix} to Yarin Gal's ``Dropout as a Bayesian Approximation'' paper and I'm pretty confident that for classification that the predictive variance is just the empirical variance of the predicted probability.
+
+One question that I'm putting aside for now is the question whether 0-normalizing is necessary.
+
+\subtopic{Verifying that torch uses 1 Dropout mask for an entire mini-batch}
+So it's looking like torch does \textbf{not} use the same Dropout mask within the same mini-batch. This means either we:
+\begin{enumerate}
+    \item Hot swap the torch dropout layers with custom ones which use 1 mask per mini-batch.
+    \item Use the standard dropout layers and accept that we'll lose the \( \Cov(X, Y) \) term from the
+        \[ \Var(X - Y) = \Var(X) + \Var(Y) - 2 \cdot \Cov(X, Y) \]
+        formula for the variance of our predicted difference.
+\end{enumerate}
+One caveat with option 1 is that, even if torch did use the same mask for the mini-batch, I'm not sure that we'll be able to fit all 4000 mutated sequences in the same batch. I \textit{think} we will but will have to verify.
+
+I think ultimately we should go with the first option, but I'm tempted to start with the second just to get all the scaffolding in place and then we can switch.
+
+\subtopic{Working with Kipoi to get uncertainty estimates}
+The key question determining whether we can use the built-in mutagenesis code is whether Kipoi makes all the predictions as part of one batch. If it doesn't, that precludes us from ever going with option 2 and calls into question whether it makes sense to use the built-in mutagenesis code in the first place.
+
+\end{Minutes}

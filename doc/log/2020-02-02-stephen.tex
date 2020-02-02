@@ -1,0 +1,27 @@
+\begin{Minutes}{}
+%%\subtitle{}
+%%\moderation{}
+%%\minutetaker{}
+\participant{Stephen Malina}
+%%\missingExcused{}
+%%\missingNoExcuse{}
+\minutesdate{February 02, 2020}
+%%\starttime{}
+%%\endtime{}
+%%\cc{}
+\maketitle
+\topic{Kipoi Uncertainty Estimates Cont.}
+\subtopic{Custom Dropout}
+After fiddling around a bit with the code and reading some helpful PyTorch forum posts, I got custom Dropout working. I'm using a \textbf{barely} modified version of SalesForce's \href{https://pytorchnlp.readthedocs.io/en/latest/_modules/torchnlp/nn/lock_dropout.html}{\texttt{LockedDropout} class code} to do Dropout with a constant mask (within a batch). I'm using an also \textbf{barely} modified version of this~\href{https://discuss.pytorch.org/t/how-can-i-replace-an-intermediate-layer-in-a-pre-trained-network/3586/7}{\texttt{convert\_layers}} code to replace the original \verb=Dropout= layers with my own.
+
+\subtopic{In-silico mutagenesis with uncertainty}
+I now have code that can generate batches of (currently un-)mutated sequences and feed them to DeepSEA. Unfortunately, this is really slow...
+
+\topic{GPU Memory Issues}
+I'm encountering weird behavior where Kipoi / Torch allocate a huge amount of memory (>10 GB) just to make predictions for a single 1000-record batch of data. Now, since each sequence is 1000 base pairs, I get that this is a non-trivial amount of data, but there's no way it requires 10 GB just to load and make predictions on. There are two other pieces of evidence that convinced me that something else must be going on:
+\begin{enumerate}
+    \item The 10 GB stick around after I make the predictions until I free the model
+    \item Calling \texttt{predict_on_example} doesn't cause the same issues even though
+\end{enumerate}
+Managed to resolve these by just using small batch sizes.
+
