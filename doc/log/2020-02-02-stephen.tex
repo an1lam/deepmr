@@ -21,7 +21,8 @@ I now have code that can generate batches of (currently un-)mutated sequences an
 I'm encountering weird behavior where Kipoi / Torch allocate a huge amount of memory (>10 GB) just to make predictions for a single 1000-record batch of data. Now, since each sequence is 1000 base pairs, I get that this is a non-trivial amount of data, but there's no way it requires 10 GB just to load and make predictions on. There are two other pieces of evidence that convinced me that something else must be going on:
 \begin{enumerate}
     \item The 10 GB stick around after I make the predictions until I free the model
-    \item Calling \texttt{predict_on_example} doesn't cause the same issues even though
+    \item Calling \verb|predict_on_example| doesn't cause the same issues even though
 \end{enumerate}
 Managed to resolve these by just using small batch sizes.
 
+\end{Minutes}
