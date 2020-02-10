@@ -1,0 +1,20 @@
+\begin{Minutes}{}
+%%\subtitle{}
+%%\moderation{}
+%%\minutetaker{}
+\participant{Stephen Malina}
+%%\missingExcused{}
+%%\missingNoExcuse{}
+\minutesdate{February 10, 2020}
+%%\starttime{}
+%%\endtime{}
+%%\cc{}
+\maketitle
+\topic{Past few days}
+I forgot to log some of my work over the past few days here but essentially I've just been futzing around with the post-Kipoi data processing a bit and also reading a bunch about MR-Egger regression, which I now mostly understand.
+
+\topic{Today}
+Now I'm finally ready to actually run the MR-Egger code in R with NN-generated data.
+
+Spent a lot of time getting all the annoying R stuff setup locally. I think I have stub code that's \textit{this} close to allowing me to run MR-Egger on our predictions. However, before I do that, I need to remember to re-run the prediction code with batch size set to 301 instead of 300 so that there are no extra un-mutated sequences in the batches. I also need to remember to generate new random sequences equally sampled from binding / no binding regions \textbf{for FOXA2} not CTCF.
+\end{Minutes}
