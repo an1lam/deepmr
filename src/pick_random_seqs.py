@@ -9,8 +9,10 @@ import argparse
 import logging
 import os
 
+import pandas as pd
 import pybedtools
-from data_loader import load_bed_data
+
+from data_loader import load_labeled_tsv_data
 
 
 def pick_random_seqs(args):
@@ -21,11 +23,27 @@ def pick_random_seqs(args):
         args: Command-line args object. Expected to have attrs `data_dir` (str),
             `chroms` (list), `model_file_path` (str).
     """
-    peak_data_df = load_bed_data(args.data_dir, args.chroms, args.input_bed_file_path)
-    shuffle_frac = float(args.num_seqs + 1) / len(peak_data_df)
-    random_seqs_df = peak_data_df.sample(frac=shuffle_frac)
+    tf_labels_df = load_labeled_tsv_data(
+        args.data_dir, 
+        args.input_bed_file_path, 
+        args.chroms,
+        args.verbose
+    )
+
+    tf_pos_exs_df = tf_labels_df[tf_labels_df['label'] == 'B']
+    tf_neg_exs_df = tf_labels_df[tf_labels_df['label'] == 'U']
+
+    pos_exs_sample_frac = (args.num_seqs // 2) / len(tf_pos_exs_df)
+    neg_exs_sample_frac = (args.num_seqs // 2) / len(tf_neg_exs_df)
+    tf_pos_exs_df = tf_pos_exs_df.sample(frac=pos_exs_sample_frac)
+    tf_neg_exs_df = tf_neg_exs_df.sample(frac=neg_exs_sample_frac)
+    tf_pos_exs_df = tf_pos_exs_df.drop(labels=("label"), axis=1)
+    tf_neg_exs_df = tf_neg_exs_df.drop(labels=("label"), axis=1)
+
     target_bed_file_path = os.path.join(args.data_dir, args.output_bed_file_path)
-    output_bed_tool = pybedtools.BedTool.from_dataframe(random_seqs_df)
+    output_bed_tool = pybedtools.BedTool.from_dataframe(
+        pd.concat((tf_pos_exs_df, tf_neg_exs_df))
+    )
     output_bed_tool.saveas(target_bed_file_path)
 
 

@@ -26,6 +26,21 @@ def load_bed_data(data_dir, chroms, bed_file_path, verbose=False):
         logging.info(peak_data.head())
     return peak_data[peak_data["chrom"].isin(chroms)]
 
+
+def load_labeled_tsv_data(data_dir, tsv_file_path, chroms, verbose=False):
+    labels_df = pd.read_csv(
+        os.path.join(data_dir, tsv_file_path),
+        sep="\t",
+        names=("chrom", "start", "end", "label"),
+        header=0,
+        dtype={"chrom": str, "start": np.int32, "end": np.int32, "label": "category"},
+    )
+    if verbose:
+        logging.info("First few lines of TF data:")
+        logging.info(labels_df.head())
+    return labels_df[labels_df["chrom"].isin(chroms)]
+
+
 def load_binding_data(data_dir, chroms, bed_file_path, verbose=False):
     binding_data = pd.read_csv(
         os.path.join(data_dir, bed_file_path),
