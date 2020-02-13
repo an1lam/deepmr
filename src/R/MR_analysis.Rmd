@@ -1,18 +1,63 @@
 ---
-title: "R Notebook"
+title: "Mendelian Randomization analysis of DeepSEA generated data"
 output: html_notebook
 ---
-
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
-
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
-
 ```{r}
-plot(cars)
+library(MendelianRandomization)
 ```
 
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+```{r}
+data_dir = "../../dat"
+seq_predictions = read.csv(file.path(data_dir, "means_and_uncertainties.csv"))
+seq_predictions = subset(seq_predictions, seq_num == 1)
+```
 
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+```{r}
+str(seq_predictions)
+```
+```{r}
+bx <- unlist(seq_predictions["X_pred_mean"])
+bxse <- unlist(seq_predictions["X_pred_var"])
+by <- unlist(seq_predictions["Y_pred_mean"])
+byse <- unlist(seq_predictions["Y_pred_var"])
+```
 
-The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+```{r}
+MRInputObject <- mr_input(bx = bx, 
+                          bxse = bxse, 
+                          by = by, 
+                          byse = byse)
+```
+
+
+```{r}
+EggerObject <- mr_egger(MRInputObject, robust = TRUE, alpha = .05)
+EggerObject
+```
+
+
+```{r}
+mr_plot(MRInputObject)
+```
+```{r}
+install.packages("devtools")
+```
+
+```{r}
+library(devtools)
+install_github("WSpiller/RadialMR")
+```
+```{r}
+plot(by/bx, bx/byse, xlim=c(min((by-2*byse)/bx), max((bx+2*byse)/bx)), ylim=c(0, max(bx/byse)))
+for (j in 1:length(bx)) {
+lines(c((by[j]-1.96*byse[j])/bx[j], (by[j]+1.96*byse[j])/bx[j]),
+c(bx[j]/byse[j], bx[j]/byse[j]))
+}
+abline(h=0, lwd=1); abline(v=0, lwd=1)
+```
+```{r}
+library(RadialMR)
+r_input <- format_radial(bx, by, bxse, byse)
+funnel_radial(egger_radial(r_input, alpha = .05))
+```
+
