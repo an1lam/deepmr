@@ -8,8 +8,8 @@ library(MendelianRandomization)
 
 ```{r}
 data_dir = "../../dat"
-seq_predictions = read.csv(file.path(data_dir, "means_and_uncertainties.csv"))
-seq_predictions = subset(seq_predictions, seq_num == 1)
+seq_predictions_all = read.csv(file.path(data_dir, "means_and_uncertainties.csv"))
+seq_predictions = subset(seq_predictions_all, seq_num == 1)
 ```
 
 ```{r}
@@ -31,8 +31,24 @@ MRInputObject <- mr_input(bx = bx,
 
 
 ```{r}
-EggerObject <- mr_egger(MRInputObject, robust = TRUE, alpha = .05)
-EggerObject
+cis = c()
+for (seq in (1:50)) {
+  seq_predictions = subset(seq_predictions_all, seq_num == seq)
+  
+  bx <- unlist(seq_predictions["X_pred_mean"])
+  bxse <- unlist(seq_predictions["X_pred_var"])
+  by <- unlist(seq_predictions["Y_pred_mean"])
+  byse <- unlist(seq_predictions["Y_pred_var"])
+  MRInputObject <- mr_input(bx = bx, 
+                          bxse = bxse, 
+                          by = by, 
+                          byse = byse)
+  EggerObject <- mr_egger(MRInputObject, robust = FALSE, alpha = .05)
+  # cis = append(cis, c(EggerObject$CILower.Est, EggerObject$CIUpper.Est))
+  print(c(EggerObject$CILower.Est, EggerObject$CIUpper.Est))
+}
+# dim(cis) <- c(2, 50)
+# print(cis)
 ```
 
 
