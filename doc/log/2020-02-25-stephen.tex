@@ -24,4 +24,8 @@ They use this method to compare different forms of MC dropout and NN ensembling 
 \topic{Today}
 I'm working on implementing \textit{dropChannel} and will test it as a substitute for the current dropout layers to see whether the s.e.\ estimates seem smaller.
 
+Before switching to \textit{dropChannel}, I'm going to try changing all the dropout probabilities in the network to be equal (\( .5 \rightarrow .2 \) after the last conv layer) and see whether that meaningfully changes the networks' predictions. I didn't check super rigorously but it seemed like the s.e.s look similar for the two sequences I sampled with all dropout rates set to .2.
+
+Using \textit{dropChannel} seemingly has not decreased the standard errors and has in fact increased them.
+
 \end{Minutes}
