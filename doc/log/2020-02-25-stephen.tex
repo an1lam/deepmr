@@ -1,0 +1,27 @@
+\begin{Minutes}{}
+%%\subtitle{}
+%%\moderation{}
+%%\minutetaker{}
+\participant{Stephen Malina}
+%%\missingExcused{}
+%%\missingNoExcuse{}
+\minutesdate{February 25, 2020}
+%%\starttime{}
+%%\endtime{}
+%%\cc{}
+\maketitle
+\topic{Recap}
+I've been bad about recording progress so I'm using this to recap all that's happened since my last entry.
+
+After getting the MR Egger code up \& running, we realized that the uncertainty estimates for individual predictions were `too' high, leading to \( I^2 \) scores of 0. This roughly means that Egger's estimates will suffer from `weak instrument bias'.
+
+Given that, I spent some time looking at Gaussian processes to try and figure out whether there was a principled way to set the dropout rate \( p \) that also might reduce or at least explain our large standard errors. I found that the dropout probability emerges in the GP VI approximation derivation as a mixing weight for a two-component mixture of Gaussians in which one component represents the NN weights and one represents `zero'.
+
+The GP formalism turned out to be not that helpful for figuring out a principled way to set the dropout probabilities. That said, in the process, we did discover a different paper which talks about the Expected Calibration Error (ECE) metric for testing calibration. The computable version of the ECE formula requires first breaking the range \( [0, 1] \) into \( k \) equal-sized bins. For each bin, we compute the absolute difference between mean predicted probability of samples and true fraction of samples with label 1. And then the ECE is a weighted average (by number of samples per bin) of the bin-level differences.
+
+They use this method to compare different forms of MC dropout and NN ensembling and find that something called \textit{dropChannel} works best.
+
+\topic{Today}
+I'm working on implementing \textit{dropChannel} and will test it as a substitute for the current dropout layers to see whether the s.e.\ estimates seem smaller.
+
+\end{Minutes}
