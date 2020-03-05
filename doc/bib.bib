@@ -196,3 +196,267 @@
   year={2000},
   publisher={Springer}
 }
+
+
+@ARTICLE{Gal2015-st,
+  title         = "Dropout as a Bayesian Approximation: Representing Model
+                   Uncertainty in Deep Learning",
+  author        = "Gal, Yarin and Ghahramani, Zoubin",
+  abstract      = "Deep learning tools have gained tremendous attention in
+                   applied machine learning. However such tools for regression
+                   and classification do not capture model uncertainty. In
+                   comparison, Bayesian models offer a mathematically grounded
+                   framework to reason about model uncertainty, but usually
+                   come with a prohibitive computational cost. In this paper we
+                   develop a new theoretical framework casting dropout training
+                   in deep neural networks (NNs) as approximate Bayesian
+                   inference in deep Gaussian processes. A direct result of
+                   this theory gives us tools to model uncertainty with dropout
+                   NNs -- extracting information from existing models that has
+                   been thrown away so far. This mitigates the problem of
+                   representing uncertainty in deep learning without
+                   sacrificing either computational complexity or test
+                   accuracy. We perform an extensive study of the properties of
+                   dropout's uncertainty. Various network architectures and
+                   non-linearities are assessed on tasks of regression and
+                   classification, using MNIST as an example. We show a
+                   considerable improvement in predictive log-likelihood and
+                   RMSE compared to existing state-of-the-art methods, and
+                   finish by using dropout's uncertainty in deep reinforcement
+                   learning.",
+  month         =  jun,
+  year          =  2015,
+  archivePrefix = "arXiv",
+  primaryClass  = "stat.ML",
+  eprint        = "1506.02142"
+}
+
+
+@INPROCEEDINGS{Hartford2017-cm,
+  title     = "Deep {{IV}}: A Flexible Approach for Counterfactual Prediction",
+  booktitle = "Proceedings of the 34th International Conference on Machine
+               Learning",
+  author    = "Hartford, Jason and Lewis, Greg and Leyton-Brown, Kevin and
+               Taddy, Matt",
+  editor    = "Precup, Doina and Teh, Yee Whye",
+  abstract  = "Counterfactual prediction requires understanding causal
+               relationships between so-called treatment and outcome variables.
+               This paper provides a recipe for augmenting deep learning
+               methods to accurately characterize such relationships in the
+               presence of instrument variables (IVs) -- sources of treatment
+               randomization that are conditionally independent from the
+               outcomes. Our IV specification resolves into two prediction
+               tasks that can be solved with deep neural nets: a first-stage
+               network for treatment prediction and a second-stage network
+               whose loss function involves integration over the conditional
+               treatment distribution. This Deep IV framework allows us to take
+               advantage of off-the-shelf supervised learning techniques to
+               estimate causal effects by adapting the loss function.
+               Experiments show that it outperforms existing machine learning
+               approaches.",
+  publisher = "PMLR",
+  volume    =  70,
+  pages     = "1414--1423",
+  series    = "Proceedings of Machine Learning Research",
+  year      =  2017,
+  address   = "International Convention Centre, Sydney, Australia"
+}
+
+
+@ARTICLE{Guo2017-qx,
+  title         = "On Calibration of Modern Neural Networks",
+  author        = "Guo, Chuan and Pleiss, Geoff and Sun, Yu and Weinberger,
+                   Kilian Q",
+  abstract      = "Confidence calibration -- the problem of predicting
+                   probability estimates representative of the true correctness
+                   likelihood -- is important for classification models in many
+                   applications. We discover that modern neural networks,
+                   unlike those from a decade ago, are poorly calibrated.
+                   Through extensive experiments, we observe that depth, width,
+                   weight decay, and Batch Normalization are important factors
+                   influencing calibration. We evaluate the performance of
+                   various post-processing calibration methods on
+                   state-of-the-art architectures with image and document
+                   classification datasets. Our analysis and experiments not
+                   only offer insights into neural network learning, but also
+                   provide a simple and straightforward recipe for practical
+                   settings: on most datasets, temperature scaling -- a
+                   single-parameter variant of Platt Scaling -- is surprisingly
+                   effective at calibrating predictions.",
+  month         =  jun,
+  year          =  2017,
+  archivePrefix = "arXiv",
+  primaryClass  = "cs.LG",
+  eprint        = "1706.04599"
+}
+
+
+@UNPUBLISHED{Koo2018-cb,
+  title    = "Inferring {Sequence-Structure} Preferences of {RNA-Binding}
+              Proteins with Convolutional Residual Networks",
+  author   = "Koo, Peter K and Anand, Praveen and Paul, Steffan B and Eddy,
+              Sean R",
+  abstract = "Abstract To infer the sequence and RNA structure specificities of
+              RNA-binding proteins (RBPs) from experiments that enrich for
+              bound sequences, we introduce a convolutional residual network
+              which we call ResidualBind. ResidualBind significantly
+              outperforms previous methods on experimental data from many RBP
+              families. We interrogate ResidualBind to identify what features
+              it has learned from high-affinity sequences with saliency
+              analysis along with 1st-order and 2nd-order in silico
+              mutagenesis. We show that in addition to sequence motifs,
+              ResidualBind learns a model that includes the number of motifs,
+              their spacing, and both positive and negative effects of RNA
+              structure context. Strikingly, ResidualBind learns RNA structure
+              context, including detailed base-pairing relationships, directly
+              from sequence data, which we confirm on synthetic data.
+              ResidualBind is a powerful, flexible, and interpretable model
+              that can uncover cis-recognition preferences across a broad
+              spectrum of RBPs.",
+  journal  = "bioRxiv",
+  pages    = "418459",
+  month    =  sep,
+  year     =  2018,
+  language = "en"
+}
+
+
+@ARTICLE{Shrikumar2017-uj,
+  title         = "Learning Important Features Through Propagating Activation
+                   Differences",
+  author        = "Shrikumar, Avanti and Greenside, Peyton and Kundaje, Anshul",
+  abstract      = "The purported ``black box'' nature of neural networks is a
+                   barrier to adoption in applications where interpretability
+                   is essential. Here we present DeepLIFT (Deep Learning
+                   Important FeaTures), a method for decomposing the output
+                   prediction of a neural network on a specific input by
+                   backpropagating the contributions of all neurons in the
+                   network to every feature of the input. DeepLIFT compares the
+                   activation of each neuron to its 'reference activation' and
+                   assigns contribution scores according to the difference. By
+                   optionally giving separate consideration to positive and
+                   negative contributions, DeepLIFT can also reveal
+                   dependencies which are missed by other approaches. Scores
+                   can be computed efficiently in a single backward pass. We
+                   apply DeepLIFT to models trained on MNIST and simulated
+                   genomic data, and show significant advantages over
+                   gradient-based methods. Video tutorial:
+                   http://goo.gl/qKb7pL, ICML slides:
+                   bit.ly/deeplifticmlslides, ICML talk:
+                   https://vimeo.com/238275076, code: http://goo.gl/RM8jvH.",
+  month         =  apr,
+  year          =  2017,
+  archivePrefix = "arXiv",
+  primaryClass  = "cs.CV",
+  eprint        = "1704.02685"
+}
+
+
+@ARTICLE{Simonyan2013-xy,
+  title         = "Deep Inside Convolutional Networks: Visualising Image
+                   Classification Models and Saliency Maps",
+  author        = "Simonyan, Karen and Vedaldi, Andrea and Zisserman, Andrew",
+  abstract      = "This paper addresses the visualisation of image
+                   classification models, learnt using deep Convolutional
+                   Networks (ConvNets). We consider two visualisation
+                   techniques, based on computing the gradient of the class
+                   score with respect to the input image. The first one
+                   generates an image, which maximises the class score [Erhan
+                   et al., 2009], thus visualising the notion of the class,
+                   captured by a ConvNet. The second technique computes a class
+                   saliency map, specific to a given image and class. We show
+                   that such maps can be employed for weakly supervised object
+                   segmentation using classification ConvNets. Finally, we
+                   establish the connection between the gradient-based ConvNet
+                   visualisation methods and deconvolutional networks [Zeiler
+                   et al., 2013].",
+  month         =  dec,
+  year          =  2013,
+  archivePrefix = "arXiv",
+  primaryClass  = "cs.CV",
+  eprint        = "1312.6034"
+}
+
+
+@ARTICLE{Tremblay2018-ds,
+  title    = "{GATA} transcription factors in development and disease",
+  author   = "Tremblay, Mathieu and Sanchez-Ferras, Oraly and Bouchard, Maxime",
+  abstract = "The GATA family of transcription factors is of crucial importance
+              during embryonic development, playing complex and widespread
+              roles in cell fate decisions and tissue morphogenesis. GATA
+              proteins are essential for the development of tissues derived
+              from all three germ layers, including the skin, brain, gonads,
+              liver, hematopoietic, cardiovascular and urogenital systems. The
+              crucial activity of GATA factors is underscored by the fact that
+              inactivating mutations in most GATA members lead to embryonic
+              lethality in mouse models and are often associated with
+              developmental diseases in humans. In this Primer, we discuss the
+              unique and redundant functions of GATA proteins in tissue
+              morphogenesis, with an emphasis on their regulation of lineage
+              specification and early organogenesis.",
+  journal  = "Development",
+  volume   =  145,
+  number   =  20,
+  month    =  oct,
+  year     =  2018,
+  keywords = "GATA factors; Gene redundancy; Genetics; Human diseases; Lineage
+              specification; Mouse development; Transcription",
+  language = "en"
+}
+
+
+@ARTICLE{Klemm2019-hk,
+  title    = "Chromatin accessibility and the regulatory epigenome",
+  author   = "Klemm, Sandy L and Shipony, Zohar and Greenleaf, William J",
+  abstract = "Physical access to DNA is a highly dynamic property of chromatin
+              that plays an essential role in establishing and maintaining
+              cellular identity. The organization of accessible chromatin
+              across the genome reflects a network of permissible physical
+              interactions through which enhancers, promoters, insulators and
+              chromatin-binding factors cooperatively regulate gene expression.
+              This landscape of accessibility changes dynamically in response
+              to both external stimuli and developmental cues, and emerging
+              evidence suggests that homeostatic maintenance of accessibility
+              is itself dynamically regulated through a competitive interplay
+              between chromatin-binding factors and nucleosomes. In this
+              Review, we examine how the accessible genome is measured and
+              explore the role of transcription factors in initiating
+              accessibility remodelling; our goal is to illustrate how
+              chromatin accessibility defines regulatory elements within the
+              genome and how these epigenetic features are dynamically
+              established to control gene expression.",
+  journal  = "Nat. Rev. Genet.",
+  volume   =  20,
+  number   =  4,
+  pages    = "207--220",
+  month    =  apr,
+  year     =  2019,
+  language = "en"
+}
+
+
+@ARTICLE{Park2009-im,
+  title    = "{ChIP-seq}: advantages and challenges of a maturing technology",
+  author   = "Park, Peter J",
+  abstract = "Chromatin immunoprecipitation followed by sequencing (ChIP-seq)
+              is a technique for genome-wide profiling of DNA-binding proteins,
+              histone modifications or nucleosomes. Owing to the tremendous
+              progress in next-generation sequencing technology, ChIP-seq
+              offers higher resolution, less noise and greater coverage than
+              its array-based predecessor ChIP-chip. With the decreasing cost
+              of sequencing, ChIP-seq has become an indispensable tool for
+              studying gene regulation and epigenetic mechanisms. In this
+              Review, I describe the benefits and challenges in harnessing this
+              technique with an emphasis on issues related to experimental
+              design and data analysis. ChIP-seq experiments generate large
+              quantities of data, and effective computational analysis will be
+              crucial for uncovering biological mechanisms.",
+  journal  = "Nat. Rev. Genet.",
+  volume   =  10,
+  number   =  10,
+  pages    = "669--680",
+  month    =  oct,
+  year     =  2009,
+  language = "en"
+}
+
