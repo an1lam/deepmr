@@ -1,0 +1,45 @@
+\begin{Minutes}{}
+%%\subtitle{}
+%%\moderation{}
+%%\minutetaker{}
+\participant{Stephen Malina}
+%%\missingExcused{}
+%%\missingNoExcuse{}
+\minutesdate{February 25, 2020}
+%%\starttime{}
+%%\endtime{}
+%%\cc{}
+\maketitle
+\topic{Recap}
+I have again been bad about recording progress... I spent a bunch of time learning about neural network calibration and then tried something Brielin suggested - regressing CA effects on TF effects just to see whether there's a clear relationship. There is!
+
+\topic{Moving Forward}
+So now I'm left with two threads to pursue:
+\begin{enumerate}
+    \item Verify by hand that mutations that reduce binding probability often disrupt known motifs for FOXA1. \label{todo:20200307.motif}
+    \item Understand what the hell is going in with our uncertainty estimates from MC dropout. Why are they so large? \label{todo:20200307.calibration}
+\end{enumerate}
+
+Now the question remains of which to do first? Seems like I should do the one which has higher expected information value per unit of work first. My hunch is by that metric~\ref{todo:20200307.calibration} wins out because we know that DeepSEA seemed to do the `right thing' with respect to motifs from the paper.
+
+Assuming I'm going with~\ref{todo:20200307.calibration}, there's a sub-question of whether it makes more sense to calibrate DeepSEA's predictions first or to see how well its uncertainty estaimtes are calibrated. My \textbf{guess} is that the uncertainty estimates will get a bit better if the predictions become more calibrated because I have an intuition that the effect of dropout's noise won't grow linearly with the probability differences. But I don't have great justification for that so it's unclear how much stock to put in it.
+
+Looking at this from a different perspective, I'm going to want to check the calibration of the standard errors before and after calibration to see whether they improve so I might as well write the code to check their calibration now since I'll need it later anyway.
+
+In terms of how I'm going to test standard error calibration, I'm unclear on whether it makes sense to assume that the predictions should be normally distributed with mean equal to the predictive mean and variance equal to the predictive variance. I vaguely remember that the motivation for the t-distribution is to come up with an analogue to the normal distribution for sample means and sample variances. I should look into that before moving ahead...
+
+\subtopic{Standard Error Calibration}
+I didn't make any concrete progress but I do feel like I have a better understanding of what make work. One thing that make work for testing calibration would be to assume that each point's predictions should be normally distributed around the population mean. Then I think we can use normal quantiles to test whether \( \alpha \)\% of actual predictions fall within the \( 1-\alpha \)\% interval. However, this is weird for 2 reasons:
+\begin{enumerate}
+    \item I'm confused about whether the distribution of predictions around the mean should follow a normal distribution or something else like a t-distribution.
+    \item This all makes a lot of sense in the regression case but is weirder given that we're doing classification. It's weirder because our predictions are estimates of the probability that a Bernoulli random variable has value 1 and then we're imposing a distribution on the estimates of the probability. \label{point:weird_thing_2}
+\end{enumerate}
+
+On second thought, it doesn't really make sense to think of these as sampled from a Bernoulli distribution because they're never 0/1...
+
+\subsubtopic{Yarin Gal knows MC dropout isn't calibrated}
+From the paper:
+\begin{displayquote}
+We can show that the dropout model is not calibrated.   This is because Gaussian processes’ un-certainty is not calibrated and the model draws its properties from these.  The Gaussian process’suncertainty depends on the covariance function chosen, which we showed above to be equivalentto the non-linearities and prior over the weights.  The choice of a GP’s covariance function followsfrom our assumptions about the data. If we believe, for example, that the model’s uncertainty shouldincrease far from the data we might choose the squared exponential covariance function.For many practical applications this means that model uncertainty can increase with data magnitudeor be of different scale for different datasets.   To calibrate model uncertainty in regression taskswe can scale the uncertainty linearly to remove data magnitude effects, and manipulate uncertaintypercentiles to compare among different datasets.  This can be done by fitting a simple distributionover the training set output uncertainty, and using the cumulative distribution function to find therelative ratio of a new data point’s uncertainty to that of existing ones. This quantity can be used tocompare a data point’s uncertainty obtained from a model trained on one data distribution to another.
+\end{displayquote}
+\end{Minutes}
