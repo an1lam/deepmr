@@ -1,0 +1,18 @@
+\begin{Minutes}{}
+%%\subtitle{}
+%%\moderation{}
+%%\minutetaker{}
+\participant{Stephen Malina}
+%%\missingExcused{}
+%%\missingNoExcuse{}
+\minutesdate{March 10, 2020}
+%%\starttime{}
+%%\endtime{}
+%%\cc{}
+\maketitle
+\topic{Current Status}
+Yesterday I had a minor breakthrough in which I figured out part of the cause of our large standard errors. It had to do with discrepancies between \verb!np.var! and \verb!np.cov! -- the former returns the input type, the latter always \verb!float64!s; the former doesn't use Bessel's correction by default, the latter does -- and a misplaced parenthesis. Now that that's resolved, I want to spot check the calibration of the standard errors, but I'm less suspicious of them on priors.
+
+Once I check the standard errors, then I'm actually going to break open the black box and see whether the most impactful mutations result from the disruption of known motifs.
+
+\end{Minutes}
