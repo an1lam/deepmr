@@ -13,9 +13,7 @@ def prob_sw(pwm, seqs, w=.05):
         tuple(int, int): The index of the highest scoring local alignment.
     """
     B, K, M, L = seqs.shape[0], pwm.shape[0], pwm.shape[1], seqs.shape[2]
-    # pwm = pwm[np.newaxis, :, :].repeat(B, axis=0)
     A = np.matmul(pwm.T, seqs)  # shape: MxL
-    print(A.shape)
     SM = np.zeros((B, M + 1, L + 1))
     SM[:, 1:, 1:] = A
     for i in range(M):
