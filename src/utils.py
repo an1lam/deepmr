@@ -3,7 +3,10 @@ import os
 import numpy as np
 import torch
 
-INT_TO_BASES = {0: 'A', 1: 'C', 2: 'G', 3: 'T'}
+from pyx.one_hot import one_hot
+
+INT_TO_BASES = {0: "A", 1: "C", 2: "G", 3: "T"}
+BASES = sorted(list(INT_TO_BASES.values()))
 
 
 def one_hot_decode(encoded):
@@ -31,3 +34,24 @@ def load_model(args, model_file_path, model):
     model.load_state_dict(torch.load(path))
     model.to(detect_device())
     return model
+
+
+def all_kmers(k, bases=BASES):
+    n_nts = len(bases)
+    kmers = np.zeros(((n_nts ** k), n_nts, k), dtype=np.float64)
+    i = 0
+
+    def _all_kmers(kmer, i):
+        if len(kmer) == k:
+            kmers[i] = one_hot("".join(kmer))
+            return i + 1
+
+        for base in bases:
+            kmer.append(base)
+            i = _all_kmers(kmer, i)
+            kmer.pop()
+
+        return i
+
+    _all_kmers([], 0)
+    return kmers
