@@ -15,7 +15,7 @@ BASES = list(INT_TO_BASES.values())
 
 def mut_effects_to_impact_map(seq, mut_effects):
     K, L = seq.shape
-    assert mut_effects.shape[0] == K-1
+    assert mut_effects.shape[0] == K - 1
     impact_map = np.zeros_like(seq)
 
     i = 0
@@ -70,20 +70,62 @@ def compute_kmer_weighted_scores(impact_maps, kmers, batches=4 ** 4):
 #         impact_logo.fig.savefig(f'../dat/impact_map_logo_{i}.png')
 
 
-def top_n_kmer_scores(seqs, mut_effects, pwms, n=20):
+def kmer_mut_scores(seqs, mut_effects, pwms, max_k=12):
     B, K, L = seqs.shape
     impact_maps = np.zeros(seqs.shape)
     for i, seq in enumerate(seqs):
         impact_maps[i] = mut_effects_to_impact_map(seq, mut_effects[i])
 
-    top_kmers_scores = []
     ks = set(pwm.shape[1] for pwm in pwms)
-    for i, k in tqdm(enumerate(ks)):
-        kmers = all_kmers(k)
-        assert n <= len(kmers), "Can't take top %d from %d" % (n, len(kmers))
-        scores = compute_kmer_weighted_scores(impact_maps, kmers, 4 ** (k - 3))
+    kmers_by_k = {}
+    for k in tqdm(ks, desc='Generate kmers'):
+        kmers_by_k[k] = all_kmers(k)
+
+    kmer_scores_by_pwm = {}
+    for i, pwm in enumerate(tqdm(pwms, desc='Weighted scoring')):
+        k = min(pwm.shape[1], max_k)
+        kmers = kmers_by_k[k]
+        scores = compute_kmer_weighted_scores(
+            impact_maps,
+            kmers,
+            batches=max(4 ** (k - 5), 1)
+        )
+        assert one_hot_decode(pwm) not in kmer_scores_by_pwm
+        kmer_scores_by_pwm[one_hot_decode(pwm)] = (kmers, scores)
+    return kmer_scores_by_pwm
+
+
+def kmer_pwm_scores(pwms, max_k=12):
+    ks = set(pwm.shape[1] for pwm in pwms)
+    kmers_by_k = {}
+    for k in tqdm(ks, desc='Generate kmers'):
+        kmers_by_k[k] = all_kmers(k)
+
+    kmer_scores_by_pwm = {}
+    for i, pwm in enumerate(tqdm(pwms, desc='PWM scoring')):
+        kmers = kmers_by_k[pwm.shape[1]]
+        scores = np.sum(pwm * kmers, axis=(1, 2))
+        kmer_scores_by_pwm[one_hot_decode(pwm)] = (kmers, scores)
+    return kmer_scores_by_pwm
+
+
+def top_n_kmer_mut_scores(seqs, mut_effects, pwms, n=20, max_k=12):
+    kmer_scores_by_pwm = kmer_mut_scores(seqs, mut_effects, pwms, max_k=max_k)
+    top_kmers_scores = {}
+    for pwm, (kmers, scores) in kmer_scores_by_pwm.items():
         top_idxs = np.argsort(-1 * scores)
         top_scores = scores[top_idxs][:n]
         top_kmers = kmers[top_idxs, :, :][:n]
-        top_kmers_scores.append(list(zip(top_kmers, top_scores)))
+        top_kmers_scores[pwm] = list(zip(top_kmers, top_scores))
+    return top_kmers_scores
+
+
+def top_n_kmer_pwm_scores(pwms, n=20, max_k=12):
+    kmer_scores_by_pwm = kmer_pwm_scores(pwms, max_k=max_k)
+    top_kmers_scores = {}
+    for pwm, (kmers, scores) in kmer_scores_by_pwm.items():
+        top_idxs = np.argsort(-1 * scores)
+        top_scores = scores[top_idxs][:n]
+        top_kmers = kmers[top_idxs, :, :][:n]
+        top_kmers_scores[pwm] = list(zip(top_kmers, top_scores))
     return top_kmers_scores
