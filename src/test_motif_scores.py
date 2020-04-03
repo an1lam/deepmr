@@ -88,10 +88,11 @@ class TestTopNKmerMutScores(TestCase):
 
         self.assertEqual(1, len(result))
         self.assertEqual(1, len(result["GGG"]))
+        self.assertEqual(1, len(result["GGG"][0]))
         # Note: relying on arbitrary property of sort.
         # Could just as well be 'GGG' or one of 6 other 3-mers.
-        np.testing.assert_array_equal(one_hot("AAA"), result["GGG"][0][0])
-        self.assertEqual(3, result["GGG"][0][1])
+        np.testing.assert_array_equal(one_hot("AAA"), result["GGG"][0][0][0])
+        self.assertEqual(3, result["GGG"][0][0][1])
 
     def test_one_score_one_k_max_k(self):
         seqs = np.array((one_hot("AAAA"), one_hot("TTTT")))
@@ -106,10 +107,11 @@ class TestTopNKmerMutScores(TestCase):
 
         self.assertEqual(1, len(result))
         self.assertEqual(1, len(result["GGG"]))
+        self.assertEqual(1, len(result["GGG"][0]))
         # Note: relying on arbitrary property of sort.
         # Could just as well be 'GGG' or one of 6 other 3-mers.
-        np.testing.assert_array_equal(one_hot("AA"), result["GGG"][0][0])
-        self.assertEqual(2, result["GGG"][0][1])
+        np.testing.assert_array_equal(one_hot("AA"), result["GGG"][0][0][0])
+        self.assertEqual(2, result["GGG"][0][0][1])
 
     def test_multiple_scores_one_k(self):
         seqs = np.array((one_hot("AAAA"), one_hot("TTTT")))
@@ -123,11 +125,12 @@ class TestTopNKmerMutScores(TestCase):
         result = top_n_kmer_mut_scores(seqs, mut_effects, pwms, n=2)
 
         self.assertEqual(2, len(result))
-        self.assertEqual(2, len(result["GGG"]))
-        self.assertEqual(3, result["GGG"][0][1])
-        self.assertEqual(3, result["GGG"][1][1])
-        np.testing.assert_array_equal(one_hot("AAA"), result["GGG"][0][0])
-        np.testing.assert_array_equal(one_hot("GAA"), result["GGG"][1][0])
+        self.assertEqual(1, len(result["GGG"]))
+        self.assertEqual(2, len(result["GGG"][0]))
+        self.assertEqual(3, result["GGG"][0][0][1])
+        self.assertEqual(3, result["GGG"][0][1][1])
+        np.testing.assert_array_equal(one_hot("AAA"), result["GGG"][0][0][0])
+        np.testing.assert_array_equal(one_hot("GAA"), result["GGG"][0][1][0])
 
 
 class TestTopNKmerPWMScores(TestCase):
@@ -138,8 +141,8 @@ class TestTopNKmerPWMScores(TestCase):
 
         self.assertEqual(2, len(result))
         self.assertEqual(1, len(result["GGG"]))
-        np.testing.assert_array_equal(one_hot("GGG"), result["GGG"][0][0])
-        self.assertEqual(3, result["GGG"][0][1])
+        np.testing.assert_array_equal(one_hot("GGG"), result["GGG"][0][0][0])
+        self.assertEqual(3, result["GGG"][0][0][1])
 
     def test_one_score_one_pwm_max_k(self):
         pwms = np.array((one_hot("GGG"), one_hot("TTT")), dtype=np.float64)
@@ -148,8 +151,8 @@ class TestTopNKmerPWMScores(TestCase):
 
         self.assertEqual(2, len(result))
         self.assertEqual(1, len(result["GGG"]))
-        np.testing.assert_array_equal(one_hot("GG"), result["GGG"][0][0])
-        self.assertEqual(2, result["GGG"][0][1])
+        np.testing.assert_array_equal(one_hot("GG"), result["GGG"][0][0][0])
+        self.assertEqual(2, result["GGG"][0][0][1])
 
 if __name__ == "__main__":
     unittest.main()
