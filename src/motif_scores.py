@@ -29,32 +29,39 @@ def mut_effects_to_impact_map(seq, mut_effects):
 
     return impact_map
 
-
-def compute_kmer_weighted_scores(impact_maps, kmers, batches=4 ** 4):
+def compute_kmer_weighted_scores(impact_maps, kmers, score_function, batches=4 ** 4):
     """
     Args:
         impact_map: B x K x L numpy array representing the effect of (K-1)*L mutations
             on DeepSEA's FOXA1 binding prediction.
         kmers: N x K x M numpy array representing kmers.
     """
-    B, K, L = impact_maps.shape
-    assert kmers.shape[1] == K
-    N, M = kmers.shape[0], kmers.shape[2]
+
+def batch_conv_score(targets, filters, score_function, batches=4 ** 4):
+    """
+    Args:
+        targets: B x K x L numpy array representing the effect of (K-1)*L mutations
+            on DeepSEA's FOXA1 binding prediction.
+        filters: N x K x M numpy array representing kmers.
+    """
+    B, K, L = targets.shape
+    assert filters.shape[1] == K
+    N, M = filters.shape[0], filters.shape[2]
     device = detect_device()
 
     assert N % batches == 0, "%d not divisible by %d" % (N, batches)
-    kmer_batches = np.split(kmers, batches)
+    filter_batches = np.split(filters, batches)
 
-    kmer_scores = np.zeros(N)
-    impact_maps_ = torch.from_numpy(impact_maps).to(device)
-    for i, kmer_batch in enumerate(kmer_batches):
-        batch_size = kmer_batch.shape[0]
-        kmer_batch_ = torch.from_numpy(kmer_batch).to(device)
-        raw_scores = F.conv1d(impact_maps_, kmer_batch_).cpu().numpy()
-        batch_kmer_scores = np.sum(abs_max(raw_scores, axis=2), axis=0)
-        kmer_scores[i * batch_size : (i + 1) * batch_size] = batch_kmer_scores
+    filter_scores = np.zeros(N)
+    targets_ = torch.from_numpy(targets).to(device)
+    for i, filter_batch in enumerate(filter_batches):
+        batch_size = filter_batch.shape[0]
+        filter_batch_ = torch.from_numpy(filter_batch).to(device)
+        raw_scores = F.conv1d(targets_, filter_batch_).cpu().numpy()
+        batch_filter_scores = score_function(raw_scores)
+        filter_scores[i * batch_size : (i + 1) * batch_size] = batch_filter_scores
 
-    return kmer_scores
+    return filter_scores
 
 
 # def logo_stuff():
@@ -71,23 +78,25 @@ def compute_kmer_weighted_scores(impact_maps, kmers, batches=4 ** 4):
 
 
 def kmer_mut_scores(seqs, mut_effects, pwms, max_k=12):
+    def compute_agg_score(raw_scores):
+        return np.sum(abs_max(raw_scores, axis=2), axis=0)
+
     B, K, L = seqs.shape
     impact_maps = np.zeros(seqs.shape)
     for i, seq in enumerate(seqs):
         impact_maps[i] = mut_effects_to_impact_map(seq, mut_effects[i])
 
-    ks = set(pwm.shape[1] for pwm in pwms)
+    ks = set(min(pwm.shape[1], max_k) for pwm in pwms)
     kmers_by_k = {}
-    for k in tqdm(ks, desc='Generate kmers'):
+    for k in tqdm(ks, desc="Generate kmers"):
         kmers_by_k[k] = all_kmers(k)
 
     kmer_scores_by_pwm = {}
-    for i, pwm in enumerate(tqdm(pwms, desc='Weighted scoring')):
+    for i, pwm in enumerate(tqdm(pwms, desc="Weighted scoring")):
         k = min(pwm.shape[1], max_k)
         kmers = kmers_by_k[k]
-        scores = compute_kmer_weighted_scores(
-            impact_maps,
-            kmers,
+        scores = batch_conv_score(
+            impact_maps, kmers, compute_agg_score,
             batches=max(4 ** (k - 5), 1)
         )
         assert one_hot_decode(pwm) not in kmer_scores_by_pwm
@@ -96,15 +105,23 @@ def kmer_mut_scores(seqs, mut_effects, pwms, max_k=12):
 
 
 def kmer_pwm_scores(pwms, max_k=12):
-    ks = set(pwm.shape[1] for pwm in pwms)
+    def compute_pwm_score(raw_scores):
+        assert raw_scores.shape[0] == 1
+        return abs_max(raw_scores, axis=2)[0]
+
+    ks = set(min(pwm.shape[1], max_k) for pwm in pwms)
     kmers_by_k = {}
-    for k in tqdm(ks, desc='Generate kmers'):
+    for k in tqdm(ks, desc="Generate kmers"):
         kmers_by_k[k] = all_kmers(k)
 
     kmer_scores_by_pwm = {}
-    for i, pwm in enumerate(tqdm(pwms, desc='PWM scoring')):
-        kmers = kmers_by_k[pwm.shape[1]]
-        scores = np.sum(pwm * kmers, axis=(1, 2))
+    for i, pwm in enumerate(tqdm(pwms, desc="PWM scoring")):
+        kmers = kmers_by_k[min(pwm.shape[1], max_k)]
+
+        scores = batch_conv_score(
+            np.expand_dims(pwm, axis=0), kmers, compute_pwm_score,
+            batches=max(4 ** (k - 5), 1)
+        )
         kmer_scores_by_pwm[one_hot_decode(pwm)] = (kmers, scores)
     return kmer_scores_by_pwm
 
