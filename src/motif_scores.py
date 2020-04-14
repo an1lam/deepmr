@@ -13,7 +13,7 @@ from utils import one_hot_decode
 BASES = list(INT_TO_BASES.values())
 
 
-def mut_effects_to_impact_map(seq, mut_effects):
+def mut_effects_to_impact_map(seq, mut_effects, ref_preds=None):
     K, L = seq.shape
     assert mut_effects.shape[0] == K - 1
     impact_map = np.zeros_like(seq)
@@ -26,15 +26,17 @@ def mut_effects_to_impact_map(seq, mut_effects):
                 mek, mel = i % (K - 1), i // (K - 1)
                 impact_map[k, l] = mut_effects[mek, mel]
                 i += 1
+            elif ref_preds is not None:
+                impact_map[k, l] = ref_preds[l]
 
     return impact_map
 
 
-def build_impact_maps(seqs, mut_effects):
+def build_impact_maps(seqs, mut_effects, ref_preds=None):
     B, K, L = seqs.shape
     impact_maps = np.zeros(seqs.shape)
     for i, seq in enumerate(seqs):
-        impact_maps[i] = mut_effects_to_impact_map(seq, mut_effects[i])
+        impact_maps[i] = mut_effects_to_impact_map(seq, mut_effects[i], ref_preds=ref_preds[i])
     return impact_maps
 
 
