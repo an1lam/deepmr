@@ -1,5 +1,7 @@
 import os
 
+from Bio.motifs import pfm
+from Bio.motifs.jaspar import calculate_pseudocounts
 import numpy as np
 import torch
 
@@ -55,3 +57,26 @@ def all_kmers(k, bases=BASES):
 
     _all_kmers([], 0)
     return kmers
+
+
+def load_pfm(fpath):
+    with open(fpath) as f:
+        return pfm.read(f, "pfm-four-rows")
+
+
+def motif_to_pwm(motif, as_log=False, as_torch=False):
+    nt_counts = motif.counts
+    motif_len = len(list(nt_counts.values())[0])
+    pseudocounts = calculate_pseudocounts(motif)
+
+    pwm = np.zeros((len(nt_counts.keys()), motif_len), dtype=np.float32)
+    for i in range(motif_len):
+        total = sum(nt_counts[base][i] + pseudocounts[base] for base in BASES)
+        for j, base in INT_TO_BASES.items():
+            pwm[j, i] = (nt_counts[base][i] + pseudocounts[base]) / total
+
+    if as_log:
+        pwm = np.log(pwm)
+    if as_torch:
+        pwm = torch.from_numpy(pwm)
+    return pwm
