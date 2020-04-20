@@ -10,7 +10,6 @@ from pyx.one_hot import one_hot
 INT_TO_BASES = {0: "A", 1: "C", 2: "G", 3: "T"}
 BASES = sorted(list(INT_TO_BASES.values()))
 
-
 def one_hot_decode(encoded):
     """
     Returns a decoded version of a one-hot encoded NT sequence as a string.
@@ -64,19 +63,22 @@ def load_pfm(fpath):
         return pfm.read(f, "pfm-four-rows")
 
 
-def motif_to_pwm(motif, as_log=False, as_torch=False):
+def motif_to_pwm(motif, as_log=False, as_torch=False, pad_to_len=None):
     nt_counts = motif.counts
-    motif_len = len(list(nt_counts.values())[0])
     pseudocounts = calculate_pseudocounts(motif)
 
-    pwm = np.zeros((len(nt_counts.keys()), motif_len), dtype=np.float32)
+    motif_len = len(list(nt_counts.values())[0])
+    if pad_to_len is None:
+        pad_to_len = motif_len
+
+    pwm = np.ones((len(nt_counts.keys()), pad_to_len), dtype=np.float32)
     for i in range(motif_len):
         total = sum(nt_counts[base][i] + pseudocounts[base] for base in BASES)
         for j, base in INT_TO_BASES.items():
             pwm[j, i] = (nt_counts[base][i] + pseudocounts[base]) / total
 
     if as_log:
-        pwm = np.log(pwm)
+        pwm = np.concatenate((np.log(pwm[:, :motif_len]), pwm[:, motif_len:]), axis=1)
     if as_torch:
         pwm = torch.from_numpy(pwm)
     return pwm

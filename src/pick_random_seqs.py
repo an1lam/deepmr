@@ -37,8 +37,8 @@ def pick_random_seqs(args):
     neg_exs_sample_frac = (args.num_seqs // 2) / len(tf_neg_exs_df)
     tf_pos_exs_df = tf_pos_exs_df.sample(frac=pos_exs_sample_frac)
     tf_neg_exs_df = tf_neg_exs_df.sample(frac=neg_exs_sample_frac)
-    tf_pos_exs_df = tf_pos_exs_df.drop(labels=("label"), axis=1)
-    tf_neg_exs_df = tf_neg_exs_df.drop(labels=("label"), axis=1)
+    tf_pos_exs_df['label'] = 1
+    tf_neg_exs_df['label'] = 0
 
     target_bed_file_path = os.path.join(args.data_dir, args.output_bed_file_path)
     output_bed_tool = pybedtools.BedTool.from_dataframe(
