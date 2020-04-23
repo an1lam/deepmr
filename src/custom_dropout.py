@@ -54,7 +54,7 @@ class LockedDropout(nn.Module):
 class LockedWeightDropout(LockedDropout):
     @classmethod
     def _get_mask_shape(cls, x):
-        return x.new_empty(1, x.size(1), x.size(2), x.size(3), requires_grad=False)
+        return (1, x.size(1), x.size(2), x.size(3))
 
 
 class LockedChannelDropout(LockedDropout):
@@ -74,7 +74,7 @@ def replace_dropout_layers(model, dropout_cls=LockedChannelDropout):
     for name, module in reversed(model._modules.items()):
         if len(list(module.children())) > 0:
             # recurse
-            model._modules[name] = replace_dropout_layers(module)
+            model._modules[name] = replace_dropout_layers(module, dropout_cls=dropout_cls)
 
         if type(module) == nn.Dropout:
             model._modules[name] = dropout_cls(p=module.p, training=module.training)
