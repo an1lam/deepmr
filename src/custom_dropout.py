@@ -14,7 +14,7 @@ class LockedDropout(nn.Module):
     <https://github.com/salesforce/awd-lstm-lm/blob/master/LICENSE>`__.
     """
 
-    def __init__(self, p=0.1, training=True):
+    def __init__(self, p, training=True):
         """
 
         Args:
@@ -77,7 +77,7 @@ def replace_dropout_layers(model, dropout_cls=LockedChannelDropout):
             model._modules[name] = replace_dropout_layers(module, dropout_cls=dropout_cls)
 
         if type(module) == nn.Dropout:
-            model._modules[name] = dropout_cls(p=module.p, training=module.training)
+            model._modules[name] = dropout_cls(module.p, training=module.training)
 
     return model
 
