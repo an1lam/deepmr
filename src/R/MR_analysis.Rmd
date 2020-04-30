@@ -18,17 +18,27 @@ First let's load our data into a dataframe. This dataframe has 5 non-null column
 
 ```{r}
 data_dir = "../../dat"
-seq_predictions = read.csv(file.path(data_dir, "means_and_uncertainties_new_code_2.csv"))
+seq_predictions = read.csv(file.path(data_dir, "effect_sizes__20200430__comparison_new.csv"))
+# seq_predictions = read.csv(file.path(data_dir, ""))
+is.nan.data.frame <- function(x)
+do.call(cbind, lapply(x, is.nan))
+
+seq_predictions[is.nan(seq_predictions)] <- 0
 seq_predictions
 ```
 
 Before we do anything else, we have to make our data compatible with MR-Egger regression. MR-Egger requires that we change the signs of all of our \( X \rightarrow Y \) effect sizes to be positive. Let's do that now.
 ```{r}
-seq_predictions %>%
+seq_predictions <- seq_predictions %>%
   mutate(
     is.negative = X_pred_mean < 0,
     X_pred_mean = ifelse(is.negative, -X_pred_mean, X_pred_mean),
-    Y_pred_mean = ifelse(is.negative, -Y_pred_mean, Y_pred_mean)
+    Y_pred_mean = ifelse(is.negative, -Y_pred_mean, Y_pred_mean),
+    X_pred_var = X_pred_var,
+    Y_pred_var = Y_pred_var
+  ) %>%
+  filter(
+    X_pred_var > 0 & Y_pred_var > 0
   )
 ```
 
@@ -37,34 +47,39 @@ seq_predictions %>%
 ivw_vals = list()
 egger_vals = list()
 
-egger_result <- matrix(ncol=4, nrow=25)
-ivw_result <- matrix(ncol=3, nrow=25)
+egger_result <- matrix(ncol=5, nrow=25)
+ivw_result <- matrix(ncol=4, nrow=25)
 
 
-for (seq in (1:25)) {
-  seq_predictions = subset(seq_predictions_all, seq_num == seq)
+for (seq in (1:3)) {
+  seq_i_predictions = subset(seq_predictions, seq_num == seq)
 
-  bxt <- unlist(seq_predictions["X_pred_mean"])
-  bxset <- unlist(seq_predictions["X_pred_var"])
-  byt <- unlist(seq_predictions["Y_pred_mean"])
-  byset <- unlist(seq_predictions["Y_pred_var"])
+  bxt <- unlist(seq_i_predictions["X_pred_mean"])
+  bxset <- unlist(seq_i_predictions["X_pred_var"])
+  byt <- unlist(seq_i_predictions["Y_pred_mean"])
+  byset <- unlist(seq_i_predictions["Y_pred_var"])
   MRInputObject <- mr_input(bx = bxt,
                             bxse = bxset,
                             by = byt,
                             byse = byset)
   EggerObject <- mr_egger(MRInputObject)
   IVWObject <- mr_ivw(MRInputObject)
-  
-  egger_result[seq, ] <- c(EggerObject$Estimate, EggerObject$CILower.Est, EggerObject$CIUpper.Est, EggerObject$Pleio.pval)
-  ivw_result[seq, ] <- c(IVWObject$Estimate, IVWObject$CILower, IVWObject$CIUpper)
+  # LMObject <- lm.fit(matrix(bxt), byt)
+  # 
+  egger_result[seq, ] <- c(EggerObject$Estimate, EggerObject$CILower.Est, EggerObject$CIUpper.Est, EggerObject$Pleio.pval, EggerObject$StdError.Est)
+  ivw_result[seq, ] <- c(IVWObject$Estimate, IVWObject$CILower, IVWObject$CIUpper, IVWObject$StdError)
 }
 
-colnames(egger_result) <- c("ce", "cil", "ciu", "pleio")
+colnames(egger_result) <- c("ce", "cil", "ciu", "pleio", "std")
 egger_result <- as_tibble(egger_result)
-colnames(ivw_result) <- c("ce", "cil", "ciu")
+colnames(ivw_result) <- c("ce", "cil", "ciu", "std")
 ivw_result <- as_tibble(ivw_result)
 ```
 
+```{r}
+# plot(bxt, byt)
+# str(LMObject)
+```
 
 Now we have the causal effect estimates, confidence intervals, and (for Egger) pleiotropy p-values.
 ```{r}
@@ -82,4 +97,9 @@ Let's also look at the distribution of pleiotropy p-values for different sequenc
 
 ```{r}
 qplot(pleio, data=egger_result, binwidth=.04)
+```
+
+```{r}
+qplot(std, data=ivw_result, binwidth=.02)
+qplot(std, data=egger_result, binwidth=.02)
 ```
