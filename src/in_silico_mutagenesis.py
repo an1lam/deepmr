@@ -1,5 +1,9 @@
+import argparse
 import csv
+from datetime import datetime
+import logging
 import math
+import os
 import pickle
 
 import kipoi
@@ -11,7 +15,8 @@ import tensorflow as tf
 import torch
 from torch import nn
 from torch.nn import functional as F
-from tqdm.notebook import tqdm
+from tqdm.auto import tqdm
+
 
 from custom_dropout import apply_dropout, replace_dropout_layers, unapply_dropout
 
@@ -19,7 +24,7 @@ from custom_dropout import apply_dropout, replace_dropout_layers, unapply_dropou
 def batches_needed(seq_len, batch_size, alpha_size=4):
     assert ((seq_len * (alpha_size)) % (batch_size)) == 0, seq_len * alpha_size
     # alpha_size - 1 mutations per nt and then account for ref in each batch
-    return (seq_len * alpha_size)) // (batch_size)
+    return (seq_len * alpha_size) // (batch_size)
 
 
 all_zeros = np.zeros((4,))
@@ -107,7 +112,7 @@ deepsea_normalizers = {
 }
 
 
-def compute_summary_statistics(preds, seqs, output_fpath=None):
+def compute_summary_statistics(preds, seqs, write_fpath=None):
     n_seqs, n_nts, seq_len = seqs.shape
     epochs, n_cols = preds.shape[0], preds.shape[-1]
 
@@ -142,7 +147,7 @@ def compute_summary_statistics(preds, seqs, output_fpath=None):
 def get_matching_cols(all_column_names, desired_column_names):
     unique_cols = {
         label: i
-        for i, label in enumerate(all_column_labels)
+        for i, label in enumerate(all_column_names)
         if label in desired_column_names
     }
     return [(v, k) for k, v in unique_cols.items()]
@@ -154,51 +159,118 @@ def filter_predictions_to_matching_cols(relevant_cols):
 
     return _filter
 
+def write_results(result_fpath, diffs, stderrs, x_col=0, y_col=1):
+    fieldnames = [
+        "seq_num",
+        "X_pred_mean",
+        "X_pred_var",
+        "Y_pred_mean",
+        "Y_pred_var",
+    ]
+    with open(result_fpath, 'w', newline="") as out_file:
+        writer = csv.DictWriter(out_file, delimiter=",", fieldnames=fieldnames)
+        writer.writeheader()
+        
+        n_seqs, n_muts, seq_len, _ = diffs.shape
+        for seq_idx in range(n_seqs):
+            for seq_pos in range(seq_len):
+                for nt_pos in range(n_muts):
+                    x_eff_size = diffs[seq_idx, nt_pos, seq_pos, x_col]
+                    y_eff_size = diffs[seq_idx, nt_pos, seq_pos, y_col]
+                    x_stderr = stderrs[seq_idx, nt_pos, seq_pos, x_col]
+                    y_stderr = stderrs[seq_idx, nt_pos, seq_pos, y_col]
+                    writer.writerow(
+                        {
+                            "seq_num": seq_idx + 1,
+                            "X_pred_mean": x_eff_size,
+                            "X_pred_var": x_stderr,
+                            "Y_pred_mean": y_eff_size,
+                            "Y_pred_var": y_stderr,
+                        }
+                    )
 
 def main(args):
-    genome_fpath = os.path.join(args.data_dir_path, args.genome_fname)
-    peaks_fpath = os.path.join(args.data_dir_path, args.peaks_fname)
+    if args.override_random_seed: torch.manual_seed(42)
+
+    genome_fpath = os.path.join(args.data_path, args.genome_fname)
+    peaks_fpath = os.path.join(args.data_path, args.peaks_fname)
     dl = SeqIntervalDl(
-        sequence_fpath, genome_fpath, auto_resize_len=args.auto_resize_len
+        peaks_fpath, genome_fpath, auto_resize_len=args.auto_resize_len
     )
     data = dl.load_all()
     seqs = np.expand_dims(data["inputs"].transpose(0, 2, 1), 2).astype(np.float32)
+    seqs = seqs.squeeze()
+    if args.n_seqs > 0:
+        seqs = seqs[:args.n_seqs]
 
-    relevant_cols = get_matching_cols(args.feature_column_names)
-    assert args.output_fpath is None or args.input_fpath is None
-    if args.input_fpath is None:
+    preds_fpath = os.path.join(args.data_path, args.preds_fname)
+    if args.preds_action == "write":
         deepsea = kipoi.get_model(args.kipoi_model_name, source="kipoi")
-        if args.log_model:
+        relevant_cols = get_matching_cols(
+            deepsea.schema.targets.column_labels, 
+            args.feature_column_names
+        )
+        if args.verbose:
             logging.info("Using '%s' Kipoi DeepSEA model for predictions", args.kipoi_model_name)
             logging.info("%s architecture:\n %r", args.kipoi_model_name, deepsea.model)
 
+        n_seqs, n_nts, seq_len = seqs.shape
         logging.info(f"Generating predictions for {n_seqs} seqs")
         preds = mutate_and_predict(
             deepsea,
             seqs,
             args.epochs,
             args.batch_size,
-            output_sel_fn=filter_predictions_to_cols(relevant_cols),
+            output_sel_fn=filter_predictions_to_matching_cols(relevant_cols),
         )
 
-        n_seqs, n_nts, seq_len = seqs.shape
         for i, (_, col_name) in enumerate(relevant_cols):
             preds[:, :, :, i] = deepsea_normalizers[col_name](preds[:, :, :, i])
 
+        with open(preds_fpath, 'wb') as f: pickle.dump(preds, f)
     else:
-        with open(pickle_file, 'rb') as f: np_preds = pickle.load(f)
+        with open(preds_fpath, 'rb') as f: np_preds = pickle.load(f)
 
-    if args.output_fpath is not None:
-        output_fpath = os.path.join(args.data_path, args.output_fpath)
-        with open(output_fpath, 'wb') as f: pickle.dump(preds, f)
 
-    means, variances, diffs, stderrs = compute_summary_statistics(
+    means, diffs, stderrs = compute_summary_statistics(
         preds, seqs
     )
-    
 
+    if args.verbose:
+        logging.info(f"Means: {means[0, 0, 0, 1]}")
+    if args.results_fname:
+        results_fpath = os.path.join(args.data_path, args.results_fname)
+        write_results(results_fpath, diffs, stderrs)
 
 if __name__ == "__main__":
+    logging.getLogger("").setLevel(logging.INFO)
+
     parser = argparse.ArgumentParser()
+
+    # Generic
+    parser.add_argument("--verbose", action="store_true", default=False)
+
+    # Kipoi related
+    parser.add_argument("--kipoi_model_name", default="DeepSEA/predict")
+    parser.add_argument("--auto_resize_len", type=int, default=1000)
+    parser.add_argument(
+        "--feature_column_names", nargs="+", 
+        default=["HepG2_DNase_None", "HepG2_FOXA1_None"]
+    )
+
+    # File paths & names
+    parser.add_argument("--data_path", default="../dat")
+    parser.add_argument("--genome_fname", default="hg19.fa")
+    parser.add_argument("--peaks_fname", default="50_random_seqs_2.bed")
+    today = datetime.date(datetime.now())
+    parser.add_argument("--preds_fname", default=f"predictions_{today}.pickle")
+    parser.add_argument("--results_fname")
+
+    # Mutagenesis related
+    parser.add_argument("--preds_action", choices=["read", "write"], default="write")
+    parser.add_argument("--override_random_seed", action="store_true")
+    parser.add_argument("--n_seqs", type=int, default=0)
+    parser.add_argument("--epochs", type=int, default=50)
+    parser.add_argument("--batch_size", type=int, default=400)
 
     main(parser.parse_args())
