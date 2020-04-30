@@ -2,87 +2,84 @@
 title: "Mendelian Randomization analysis of DeepSEA generated data"
 output: html_notebook
 ---
+Let's start by importing the Mendelian Randomization package we're going to use and the always helpful `dbplyr` and `tidyverse` packages.
 ```{r}
 library(MendelianRandomization)
+library(dplyr)
+library(tidyverse)
 ```
+
+First let's load our data into a dataframe. This dataframe has 5 non-null columns: 
+1. `seq_num`
+2. `X_pred_mean`: Effect size for the \( Z \rightarrow X \) relationship. Determined by taking the difference between predicted transcription factor binding probability for a reference sequence and a mutated version of the reference.
+3. `X_pred_var`: Standard error of the \( Z \rightarrow X \) effect size estimate.
+4. `Y_pred_mean`: Effect size for the \( Z \rightarrow Y \) relationship. Determined by taking the difference between predicted chromatin accessibility probability for a reference sequence and a mutated version of the reference.
+5. `Y_pred_var`: Standard error of the \( Z \rightarrow Y \) effect size estimate.
 
 ```{r}
 data_dir = "../../dat"
-seq_predictions_all = read.csv(file.path(data_dir, "means_and_uncertainties_hopefully_correct.csv"))
-seq_predictions = subset(seq_predictions_all, seq_num == 25)
+seq_predictions = read.csv(file.path(data_dir, "means_and_uncertainties_new_code_2.csv"))
+seq_predictions
 ```
 
+Before we do anything else, we have to make our data compatible with MR-Egger regression. MR-Egger requires that we change the signs of all of our \( X \rightarrow Y \) effect sizes to be positive. Let's do that now.
 ```{r}
-str(seq_predictions)
-```
-```{r}
-bx <- unlist(seq_predictions["X_pred_mean"])
-bxse <- unlist(seq_predictions["X_pred_var"])
-by <- unlist(seq_predictions["Y_pred_mean"])
-byse <- unlist(seq_predictions["Y_pred_var"])
-```
-
-```{r}
-MRInputObjectEx <- mr_input(bx = bx, 
-                          bxse = bxse, 
-                          by = by, 
-                          byse = byse)
+seq_predictions %>%
+  mutate(
+    is.negative = X_pred_mean < 0,
+    X_pred_mean = ifelse(is.negative, -X_pred_mean, X_pred_mean),
+    Y_pred_mean = ifelse(is.negative, -Y_pred_mean, Y_pred_mean)
+  )
 ```
 
 
 ```{r}
-# cis = c()
-# for (seq in (1:50)) {
-#   seq_predictions = subset(seq_predictions_all, seq_num == seq)
-#   
-#   bxt <- unlist(seq_predictions["X_pred_mean"])
-#   bxset <- unlist(seq_predictions["X_pred_var"])
-#   byt <- unlist(seq_predictions["Y_pred_mean"])
-#   byset <- unlist(seq_predictions["Y_pred_var"])
-#   MRInputObject <- mr_input(bx = bxt, 
-#                           bxse = bxset, 
-#                           by = byt, 
-#                           byse = byset)
-#   EggerObject <- mr_egger(MRInputObject, robust = FALSE, alpha = .05)
-#   # cis = append(cis, c(EggerObject$CILower.Est, EggerObject$CIUpper.Est))
-#   print(seq)
-#   print(c(EggerObject$CILower.Est, EggerObject$CIUpper.Est))
-#   print(c(EggerObject$I.sq))
-# }
-# dim(cis) <- c(2, 50)
-# print(cis)
-```
+ivw_vals = list()
+egger_vals = list()
+
+egger_result <- matrix(ncol=4, nrow=25)
+ivw_result <- matrix(ncol=3, nrow=25)
 
 
-```{r}
-mr_plot(MRInputObjectEx)
-```
-```{r}
-install.packages("devtools")
-```
+for (seq in (1:25)) {
+  seq_predictions = subset(seq_predictions_all, seq_num == seq)
 
-```{r}
-library(devtools)
-install_github("WSpiller/RadialMR")
-```
-```{r}
-plot(by/bx, bx/byse, xlim=c(min((by-2*byse)/bx), max((bx+2*byse)/bx)), ylim=c(0, max(bx/byse)))
-for (j in 1:length(bx)) {
-lines(c((by[j]-1.96*byse[j])/bx[j], (by[j]+1.96*byse[j])/bx[j]),
-c(bx[j]/byse[j], bx[j]/byse[j]))
+  bxt <- unlist(seq_predictions["X_pred_mean"])
+  bxset <- unlist(seq_predictions["X_pred_var"])
+  byt <- unlist(seq_predictions["Y_pred_mean"])
+  byset <- unlist(seq_predictions["Y_pred_var"])
+  MRInputObject <- mr_input(bx = bxt,
+                            bxse = bxset,
+                            by = byt,
+                            byse = byset)
+  EggerObject <- mr_egger(MRInputObject)
+  IVWObject <- mr_ivw(MRInputObject)
+  
+  egger_result[seq, ] <- c(EggerObject$Estimate, EggerObject$CILower.Est, EggerObject$CIUpper.Est, EggerObject$Pleio.pval)
+  ivw_result[seq, ] <- c(IVWObject$Estimate, IVWObject$CILower, IVWObject$CIUpper)
 }
-abline(h=0, lwd=1); abline(v=0, lwd=1)
-```
-```{r}
-library(RadialMR)
-r_input <- format_radial(bx, by, bxse, byse)
-funnel_radial(egger_radial(r_input, alpha = .05))
+
+colnames(egger_result) <- c("ce", "cil", "ciu", "pleio")
+egger_result <- as_tibble(egger_result)
+colnames(ivw_result) <- c("ce", "cil", "ciu")
+ivw_result <- as_tibble(ivw_result)
 ```
 
+
+Now we have the causal effect estimates, confidence intervals, and (for Egger) pleiotropy p-values.
 ```{r}
-plot_radial(ivw_radial(r_input, alpha = .05))
+ivw_result
+egger_result
 ```
 
+Let's summarize the IVW & Egger causal effect estimates as histograms. This will give us an idea of how heterogeneous the alleged causal relationships are at different regions of the genome.
 ```{r}
-plot_radial(egger_radial(r_input, alpha = .05))
+qplot(ce, data=ivw_result, binwidth=.02)
+qplot(ce, data=egger_result, binwidth=.02)
+```
+
+Let's also look at the distribution of pleiotropy p-values for different sequences. If they're concentrated around .5, this means that the algorithm believes there to be very little pleiotropy.
+
+```{r}
+qplot(pleio, data=egger_result, binwidth=.04)
 ```
