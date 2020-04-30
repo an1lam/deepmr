@@ -1,3 +1,7 @@
+if [[ $1 == "-f" ]]; then
+    gcloud compute scp --project coms-4995-260215 --zone us-west1-b --recurse gregor-2-vm:~/project/$2 $2
+fi
+
 if [[ $1 == "-s" ]]; then
     gcloud compute scp --project coms-4995-260215 --zone us-west1-b --recurse gregor-2-vm:~/project/src/*.py src/
     gcloud compute scp --project coms-4995-260215 --zone us-west1-b --recurse gregor-2-vm:~/project/src/pyx/*.py ./src/pyx/
