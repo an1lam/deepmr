@@ -127,7 +127,7 @@ def compute_summary_statistics(preds, seqs, write_fpath=None):
     ref_vars = np.var(ref_preds, axis=0, dtype=np.float32)
     mut_vars = np.var(mut_preds, axis=0, dtype=np.float32)
     covs = np.zeros((n_seqs, n_nts-1, seq_len, n_cols))
-    for seq_idx in range(n_seqs):
+    for seq_idx in tqdm(range(n_seqs)):
         for seq_pos in range(seq_len):
             for col in range(n_cols):
                 curr_ref_preds = ref_preds[:, seq_idx, 0, seq_pos, col]
@@ -159,7 +159,7 @@ def filter_predictions_to_matching_cols(relevant_cols):
 
     return _filter
 
-def write_results(result_fpath, diffs, stderrs, x_col=0, y_col=1):
+def write_results(result_fpath, diffs, stderrs, x_col=1, y_col=0):
     fieldnames = [
         "seq_num",
         "X_pred_mean",
@@ -229,7 +229,7 @@ def main(args):
 
         with open(preds_fpath, 'wb') as f: pickle.dump(preds, f)
     else:
-        with open(preds_fpath, 'rb') as f: np_preds = pickle.load(f)
+        with open(preds_fpath, 'rb') as f: preds = pickle.load(f)
 
 
     means, diffs, stderrs = compute_summary_statistics(
@@ -237,7 +237,8 @@ def main(args):
     )
 
     if args.verbose:
-        logging.info(f"Means: {means[0, 0, 0, 1]}")
+        print(f"Diffs shape: {diffs.shape}")
+        print(f"Diffs: {diffs[5, 0:1, :, :]}")
     if args.results_fname:
         results_fpath = os.path.join(args.data_path, args.results_fname)
         write_results(results_fpath, diffs, stderrs)
