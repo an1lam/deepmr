@@ -1,25 +1,22 @@
 ---
-title: "Mendelian Randomization analysis of DeepSEA generated data"
+  title: "Mendelian Randomization analysis of DeepSEA generated data"
 output: html_notebook
 ---
-Let's start by importing the Mendelian Randomization package we're going to use and the always helpful `dbplyr` and `tidyverse` packages.
 ```{r}
 library(MendelianRandomization)
 library(dplyr)
 library(tidyverse)
 ```
 
-First let's load our data into a dataframe. This dataframe has 5 non-null columns: 
-1. `seq_num`
-2. `X_pred_mean`: Effect size for the \( Z \rightarrow X \) relationship. Determined by taking the difference between predicted transcription factor binding probability for a reference sequence and a mutated version of the reference.
-3. `X_pred_var`: Standard error of the \( Z \rightarrow X \) effect size estimate.
-4. `Y_pred_mean`: Effect size for the \( Z \rightarrow Y \) relationship. Determined by taking the difference between predicted chromatin accessibility probability for a reference sequence and a mutated version of the reference.
-5. `Y_pred_var`: Standard error of the \( Z \rightarrow Y \) effect size estimate.
+```{r}
+files <- list.files(path="../dat/res/", pattern="*.txt")
+
+lapply(files, function(f) {
+  print(f)
+})
+```
 
 ```{r}
-data_dir = "../../dat/"
-results_dir = "../../dat/res/"
-
 # seq_predictions = read.csv(file.path(data_dir, "effect_sizes__20200430__comparison_new.csv"))
 seq_predictions = read.csv(file.path(results_dir, "HepG2_HDAC2_mutagenesis_results.csv"))
 is.nan.data.frame <- function(x)
@@ -29,9 +26,15 @@ seq_predictions[is.nan(seq_predictions)] <- 0
 seq_predictions
 ```
 
-Before we do anything else, we have to make our data compatible with MR-Egger regression. MR-Egger requires that we change the signs of all of our \( X \rightarrow Y \) effect sizes to be positive. Let's do that now.
 ```{r}
 seq_predictions <- seq_predictions %>%
+  mutate(
+    is.negative = X_pred_mean < 0,
+    X_pred_mean = ifelse(is.negative, -X_pred_mean, X_pred_mean),
+    Y_pred_mean = ifelse(is.negative, -Y_pred_mean, Y_pred_mean),
+    X_pred_var = X_pred_var,
+    Y_pred_var = Y_pred_var
+  ) %>%
   filter(
     X_pred_var > 0 & Y_pred_var > 0
   )
@@ -48,7 +51,7 @@ ivw_result <- matrix(ncol=4, nrow=25)
 
 for (seq in (1:25)) {
   seq_i_predictions = subset(seq_predictions, seq_num == seq)
-
+  
   bxt <- unlist(seq_i_predictions["X_pred_mean"])
   bxset <- unlist(seq_i_predictions["X_pred_var"])
   byt <- unlist(seq_i_predictions["Y_pred_mean"])
@@ -73,7 +76,6 @@ ivw_result <- as_tibble(ivw_result)
 
 ```{r}
 egger_result$i.sq
-egger_result$pleio
 ```
 
 Now we have the causal effect estimates, confidence intervals, and (for Egger) pleiotropy p-values.
@@ -100,5 +102,5 @@ p
 ```
 
 ```{r}
-plot(bxt, byt)
+plot(bxt, bxset)
 ```
