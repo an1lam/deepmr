@@ -251,6 +251,8 @@ __pycache__
 .venv
 venv
 *.so
+.ipynb_checkpoints
+
 .Rproj.user
 
 # History files
