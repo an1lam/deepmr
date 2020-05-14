@@ -21,7 +21,7 @@ data_dir = "../../dat/"
 results_dir = "../../dat/res/"
 
 # seq_predictions = read.csv(file.path(data_dir, "effect_sizes__20200430__comparison_new.csv"))
-seq_predictions = read.csv(file.path(results_dir, "HepG2_HDAC2_mutagenesis_results.csv"))
+seq_predictions = read.csv(file.path(results_dir, "HepG2_EZH2_mutagenesis_results.csv"))
 is.nan.data.frame <- function(x)
 do.call(cbind, lapply(x, is.nan))
 
@@ -42,8 +42,7 @@ seq_predictions <- seq_predictions %>%
 ivw_vals = list()
 egger_vals = list()
 
-egger_result <- matrix(ncol=6, nrow=25)
-ivw_result <- matrix(ncol=4, nrow=25)
+egger_result <- matrix(ncol=7, nrow=25)
 
 
 for (seq in (1:25)) {
@@ -61,18 +60,16 @@ for (seq in (1:25)) {
   IVWObject <- mr_ivw(MRInputObject)
   # LMObject <- lm.fit(matrix(bxt), byt)
   # 
-  egger_result[seq, ] <- c(EggerObject$Estimate, EggerObject$CILower.Est, EggerObject$CIUpper.Est, EggerObject$I.sq, EggerObject$Pleio.pval, EggerObject$StdError.Est)
+  egger_result[seq, ] <- c(EggerObject$Estimate, EggerObject$CILower.Est, EggerObject$CIUpper.Est, EggerObject$I.sq, EggerObject$Pleio.pval, EggerObject$StdError.Est, EggerObject$Intercept)
   ivw_result[seq, ] <- c(IVWObject$Estimate, IVWObject$CILower, IVWObject$CIUpper, IVWObject$StdError)
 }
 
-colnames(egger_result) <- c("ce", "cil", "ciu", "i.sq", "pleio", "std")
+colnames(egger_result) <- c("ce", "cil", "ciu", "i.sq", "pleio", "std", "int")
 egger_result <- as_tibble(egger_result)
-colnames(ivw_result) <- c("ce", "cil", "ciu", "std")
-ivw_result <- as_tibble(ivw_result)
 ```
 
 ```{r}
-egger_result$i.sq
+egger_result$int
 egger_result$pleio
 ```
 
