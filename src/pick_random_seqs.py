@@ -20,31 +20,18 @@ def pick_random_seqs(args):
     Uses a trained model to generate a list of maximally "salient" mutations to make.
 
     Args:
-        args: Command-line args object. Expected to have attrs `data_dir` (str),
-            `chroms` (list), `model_file_path` (str).
+        args: Command-line args object.
     """
-    tf_labels_df = load_labeled_tsv_data(
-        args.data_dir, 
-        args.input_bed_file_path, 
-        args.chroms,
-        args.verbose
-    )
 
-    tf_pos_exs_df = tf_labels_df[tf_labels_df['label'] == 'B']
-    tf_neg_exs_df = tf_labels_df[tf_labels_df['label'] == 'U']
+    peaks_fpath = os.path.join(args.input_data_dir, args.input_bed_fname)
+    tf_peaks_df = pybedtools.BedTool(fn=peaks_fpath).to_dataframe()
 
-    pos_exs_sample_frac = (args.num_seqs // 2) / len(tf_pos_exs_df)
-    neg_exs_sample_frac = (args.num_seqs // 2) / len(tf_neg_exs_df)
-    tf_pos_exs_df = tf_pos_exs_df.sample(frac=pos_exs_sample_frac)
-    tf_neg_exs_df = tf_neg_exs_df.sample(frac=neg_exs_sample_frac)
-    tf_pos_exs_df['label'] = 1
-    tf_neg_exs_df['label'] = 0
+    sample_frac = args.num_seqs / len(tf_peaks_df)
+    tf_peaks_df = tf_peaks_df.sample(frac=sample_frac)
 
-    target_bed_file_path = os.path.join(args.data_dir, args.output_bed_file_path)
-    output_bed_tool = pybedtools.BedTool.from_dataframe(
-        pd.concat((tf_pos_exs_df, tf_neg_exs_df))
-    )
-    output_bed_tool.saveas(target_bed_file_path)
+    output_bed_fname = os.path.join(args.output_data_dir, args.output_bed_fname)
+    output_bed_tool = pybedtools.BedTool.from_dataframe(tf_peaks_df[["chrom", "start", "end"]]) 
+    output_bed_tool.saveas(output_bed_fname, compressed=True)
 
 
 if __name__ == "__main__":
@@ -52,17 +39,23 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # Directories / file names
     parser.add_argument(
-        "--data_dir",
+        "--input_data_dir",
         default="../dat",
         help="(Absolute or relative) path to the directory from which we want to pull "
         "data and model files and write output.",
     )
     parser.add_argument(
-        "--input_bed_file_path",
-        help="Data directory relative path to .bed file from which we want to extract our sequences.",
+        "--input_bed_fname",
+        help="Name of .bed file from which we want to extract our sequences.",
         required=True,
     )
-    parser.add_argument("--output_bed_file_path", required=True)
+    parser.add_argument(
+        "--output_data_dir",
+        default="../dat",
+        help="(Absolute or relative) path to the directory from which we want to pull "
+        "data and model files and write output.",
+    )
+    parser.add_argument("--output_bed_fname", required=True)
 
     # IV selection configuration
     parser.add_argument(

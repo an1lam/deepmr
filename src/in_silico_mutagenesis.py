@@ -11,6 +11,7 @@ from kipoi_interpret.importance_scores.ism import Mutation
 from kipoiseq.dataloaders import SeqIntervalDl
 from matplotlib import pyplot as plt
 import numpy as np
+import pandas as pd
 import tensorflow as tf
 import torch
 from torch import nn
@@ -106,10 +107,21 @@ def compute_normalized_prob(train_prob):
 
 # Ratios and normalization formula drawn from here:
 # http://deepsea.princeton.edu/media/help/posproportion.txt
-deepsea_normalizers = {
-    "HepG2_FOXA1_None": compute_normalized_prob(0.020508),
-    "HepG2_DNase_None": compute_normalized_prob(0.049791),
-}
+def build_deepsea_normalizers(proportions_fpath):
+    proportions_df = pd.read_csv(proportions_fpath, sep="\t")
+    normalizers = {}
+
+    for _, row in proportions_df.iterrows():
+        cell_type = row['Cell Type']
+        treatment = row['Treatment']
+        feature = row['TF/DNase/HistoneMark']
+        key = "_".join((cell_type, feature, treatment))
+        if key not in normalizers:
+            norm_constant = row['Positive Proportion']
+            normalizers[key] = compute_normalized_prob(norm_constant)
+
+    return normalizers
+
 
 
 def compute_summary_statistics(preds, seqs, write_fpath=None):
@@ -159,7 +171,7 @@ def filter_predictions_to_matching_cols(relevant_cols):
 
     return _filter
 
-def write_results(result_fpath, diffs, stderrs, x_col=1, y_col=0):
+def write_results(result_fpath, diffs, stderrs, x_col=0, y_col=1):
     fieldnames = [
         "seq_num",
         "X_pred_mean",
@@ -192,8 +204,8 @@ def write_results(result_fpath, diffs, stderrs, x_col=1, y_col=0):
 def main(args):
     if args.override_random_seed: torch.manual_seed(42)
 
-    genome_fpath = os.path.join(args.data_path, args.genome_fname)
-    peaks_fpath = os.path.join(args.data_path, args.peaks_fname)
+    genome_fpath = os.path.join(args.input_data_dir, args.genome_fname)
+    peaks_fpath = os.path.join(args.input_data_dir, args.peaks_fname)
     dl = SeqIntervalDl(
         peaks_fpath, genome_fpath, auto_resize_len=args.auto_resize_len
     )
@@ -203,13 +215,17 @@ def main(args):
     if args.n_seqs > 0:
         seqs = seqs[:args.n_seqs]
 
-    preds_fpath = os.path.join(args.data_path, args.preds_fname)
+    preds_fpath = os.path.join(args.input_data_dir, args.preds_fname)
     if args.preds_action == "write":
         deepsea = kipoi.get_model(args.kipoi_model_name, source="kipoi")
-        relevant_cols = get_matching_cols(
+        x_col = get_matching_cols(
             deepsea.schema.targets.column_labels, 
-            args.feature_column_names
-        )
+            [args.x_column_name]
+        )[0]
+        y_col = get_matching_cols(
+            deepsea.schema.targets.column_labels, 
+            [args.y_column_name]
+        )[0]
         if args.verbose:
             logging.info("Using '%s' Kipoi DeepSEA model for predictions", args.kipoi_model_name)
             logging.info("%s architecture:\n %r", args.kipoi_model_name, deepsea.model)
@@ -221,11 +237,13 @@ def main(args):
             seqs,
             args.epochs,
             args.batch_size,
-            output_sel_fn=filter_predictions_to_matching_cols(relevant_cols),
+            output_sel_fn=filter_predictions_to_matching_cols((x_col, y_col)),
         )
 
-        for i, (_, col_name) in enumerate(relevant_cols):
-            preds[:, :, :, i] = deepsea_normalizers[col_name](preds[:, :, :, i])
+        proportions_fpath = os.path.join(args.input_data_dir, args.proportions_fname)
+        normalizers = build_deepsea_normalizers(proportions_fpath)
+        for i, (_, col_name) in enumerate((x_col, y_col)):
+            preds[:, :, :, i] = normalizers[col_name](preds[:, :, :, i])
 
         with open(preds_fpath, 'wb') as f: pickle.dump(preds, f)
     else:
@@ -240,7 +258,7 @@ def main(args):
         print(f"Diffs shape: {diffs.shape}")
         print(f"Diffs: {diffs[5, 0:1, :, :]}")
     if args.results_fname:
-        results_fpath = os.path.join(args.data_path, args.results_fname)
+        results_fpath = os.path.join(args.output_data_dir, args.results_fname)
         write_results(results_fpath, diffs, stderrs)
 
 if __name__ == "__main__":
@@ -258,19 +276,23 @@ if __name__ == "__main__":
         "--feature_column_names", nargs="+", 
         default=["HepG2_DNase_None", "HepG2_FOXA1_None"]
     )
+    parser.add_argument("--x_column_name", default="HepG2_FOXA1_None")
+    parser.add_argument("--y_column_name", default="HepG2_DNase_None")
 
     # File paths & names
-    parser.add_argument("--data_path", default="../dat")
+    parser.add_argument("--input_data_dir", default="../dat")
+    parser.add_argument("--output_data_dir", default="../dat")
     parser.add_argument("--genome_fname", default="hg19.fa")
     parser.add_argument("--peaks_fname", default="50_random_seqs_2.bed")
     today = datetime.date(datetime.now())
     parser.add_argument("--preds_fname", default=f"predictions_{today}.pickle")
+    parser.add_argument("--proportions_fname", default="deepsea_normalization_constants.tsv")
     parser.add_argument("--results_fname")
 
     # Mutagenesis related
     parser.add_argument("--preds_action", choices=["read", "write"], default="write")
     parser.add_argument("--override_random_seed", action="store_true")
-    parser.add_argument("--n_seqs", type=int, default=0)
+    parser.add_argument("-n", "--n_seqs", type=int, default=0)
     parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--batch_size", type=int, default=400)
 
