@@ -1,0 +1,224 @@
+%%%%%%%% ICML 2020 EXAMPLE LATEX SUBMISSION FILE %%%%%%%%%%%%%%%%%
+
+\documentclass{article}
+
+% Recommended, but optional, packages for figures and better typesetting:
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{subfigure}
+\usepackage{booktabs} % for professional tables
+
+% hyperref makes hyperlinks in the resulting PDF.
+% If your build breaks (sometimes temporarily if a hyperlink spans a page)
+% please comment out the following usepackage line and replace
+% \usepackage{icml2020} with \usepackage[nohyperref]{icml2020} above.
+\usepackage{hyperref}
+
+% Attempt to make hyperref and algorithmic work together better:
+\newcommand{\theHalgorithm}{\arabic{algorithm}}
+
+% Use the following line for the initial blind version submitted for review:
+\usepackage{icml2020}
+
+% If accepted, instead use the following line for the camera-ready submission:
+%\usepackage[accepted]{icml2020}
+
+% Packages I added:
+\usepackage{todo}
+% \presetkeys%
+%     {todonotes}%
+%     {inline,backgroundcolor=yellow}{}
+\usepackage{amsmath}
+\usepackage{amsthm}
+
+\newtheorem{defn}{Definition}
+
+% The \icmltitle you define below is probably too long as a header.
+% Therefore, a short form for the running title is supplied here:
+\icmltitlerunning{Deep MR}
+
+\begin{document}
+
+\twocolumn[
+\icmltitle{Deep Mendelian Randomization: Using Mendelian Randomization to Detect Learned Causal Relationships in Deep Learning Models}
+
+\todo*{Remove}
+\nocite{langley00}
+% It is OKAY to include author information, even for blind
+% submissions: the style file will automatically remove it for you
+% unless you've provided the [accepted] option to the icml2020
+% package.
+
+% List of affiliations: The first argument should be a (short)
+% identifier you will use later to specify author affiliations
+% Academic affiliations should list Department, University, City, Region, Country
+% Industry affiliations should list Company, City, Region, Country
+
+% You can specify symbols, otherwise they are numbered in order.
+% Ideally, you should not use this facility. Affiliations will be numbered
+% in order of appearance and this is the preferred way.
+\icmlsetsymbol{equal}{*}
+
+\begin{icmlauthorlist}
+\icmlauthor{Stephen Malina}{equal,cu}
+\icmlauthor{David Knowles}{equal,cu,nygc}
+\end{icmlauthorlist}
+\icmlcorrespondingauthor{Stephen Malina}{sdm2181@columbia.edu}
+
+\icmlaffiliation{to}{Department of Computer Science, Columbia University, New York, NY}
+\icmlaffiliation{nygc}{New York Genome Center, New York, NY}
+
+% You may provide any keywords that you
+% find helpful for describing your paper; these are used to populate
+% the "keywords" metadata in the PDF but will not be shown in the document
+\icmlkeywords{Mendelian Randomization, Deep Learning, Causal Inference}
+
+\vskip 0.3in
+]
+
+% this must go after the closing bracket ] following \twocolumn[ ...
+
+% This command actually creates the footnote in the first column
+% listing the affiliations and the copyright notice.
+% The command takes one argument, which is text to display at the start of the footnote.
+% The \icmlEqualContribution command is standard text for equal contribution.
+% Remove it (just {}) if you do not need this facility.
+
+%\printAffiliationsAndNotice{}  % leave blank if no need to mention equal contribution
+\printAffiliationsAndNotice{\icmlEqualContribution} % otherwise use the standard text.
+
+\begin{abstract}
+\end{abstract}
+
+\section{Introduction}
+\label{introduction}
+Recently, deep learning models have been used to classify genomic features such as transcription factor binding, chromatin accessibility, the presence / absence of histone marks, and RNA binding protein binding \todo*{cite}. These models achieve high predictive accuracy on these tasks and learn feature detectors that match experimentally verified features \todo*{fix language}. Furthermore, multi-task models such as DeepSEA \todo*{cite} achieve high accuracy simultaneously on multiple genomic feature prediction tasks. One question we can ask about these multi-task models is whether, through learning to predict multiple features jointly, they learn experimentally determined causal relationships between these features.
+
+\todo*{Mention why this is non-trivial and not identical to predictive accuracy. Hint: unobserved confounding.}
+
+To try and answer this question, we apply Mendelian randomization, an instrumental variable \todo*{cite} approach for causal inference, to the problem of detecting learned causal effects in genomic deep learning models. Our algorithm obtains local (sequence level) and global (genome level) estimates of the linear causal relationship between two biological processes learned by a multi-task genomic prediction model. In this work, we apply our approach to estimating the learned causal effect of transcription factor binding on chromatin accessibility in a single cell type, but our method can in principle be applied to other processes that are believed to satisfy the instrumental variable assumptions.
+
+\section{Background \& Related Work}
+\subsection{Deep Learning Interpretability}
+
+\subsection{Deep Learning Model Uncertainty}
+
+\subsection{Mendelian Randomization}
+
+\section{Methods}
+\subsection{Algorithm Overview}
+Our algorithm attempts to determine whether data a trained model generates reflects known causal relationships in the underlying data-generating process. It requires as input a trained model\footnote{The model could in principle be a regression or classification model, but we focus on classification in our experiments and discussion.} and a set of one-hot encoded sequences for the model to make predictions on.
+
+Given this, it outputs a set of local, sequence-specific and exposure-specific causal effects and set of global, exposure-specific causal effects. It accomplishes this (see \todo*{figure 1} for visual depiction) via the following steps for each exposure:
+\begin{enumerate}
+    \item Randomly samples sequences to make predictions for the exposure and outcome on (``reference sequences'').
+    \item Perform \textit{saturation in-silico mutagenesis} for each reference sequence to generate \( \text{sequence\ length} \times \text{number\ of\ nucleotides} - 1 \) mutated sequences per original sequence.
+    \label{}
+    \item For each reference and set of mutated sequences, use MC-dropout \todo*{cite} to generate predictive means and standard errors of binding probabilities for the (reference|mutated) sequences.
+    \item Generate \( \text{sequence length} \times \text{number of nucleotides} - 1 \) \textit{effect sizes} by taking the differences between each mutated sequence's predictive mean and the corresponding reference sequence's predictive mean and the standard error of these differences.
+    \item Apply Mendelian randomization to each reference sequence's effect sizes and their standard errors to estimate a per-transcription factor, per-sequence region causal effect.
+    \item Estimate overall per-transcription factor causal effects.
+\end{enumerate}
+
+This leaves us with estimates of local (transcription factor and sequence level) and global (transcription factor level) causal effects. 
+
+\subsection{Exposure and Outcome Effect Size \& Standard Error Estimation}
+As part of the above, we need the predicted difference in both the exposure and outcome value for every mutated, reference sequence pair. Saturation mutagenesis and MC-dropout together provide us with predicted exposure and outcome differences for each mutated sequence, reference sequence pair, but only estimates for the standard errors of the individual predictions not the difference between the two. To obtain the latter quantity, the variance of the differences between the predicted exposure and outcome values for the mutated and reference sequences, we apply the following well-known identity
+\begin{equation}
+    \text{Var}(X - Y) = \text{Var}(X) + \text{Var}(Y) = 2 \cdot \text{Cov}(X, Y).
+\end{equation}
+This provides us with a standard error value which we give to Mendelian randomization along with our effect size estimates.
+
+\section{Overall Causal Effect Estimation}
+To estimate overall causal effects at the per-exposure level, we used an inverse-variance weighted random effects meta-analysis.
+
+TODO: Question for David - what to say here?
+
+\section{Experimental Results}
+To test our method, we used a pre-trained DeepSEA model provided by the Kipoi library \todo*{cite} to estimate the learned causal effect of 36 transcription factors on chromatin accessibility in the HepG2 cell type. We drew our sequence regions from DeepSEA's held-out test set, which was generated via processing the results of ChIP-seq (for transcription factors) and DNase-seq experiments as part of ENCODE project.
+
+For each transcription factor, we randomly sampled 25 (1000 base pair) sequences on which binding was experimentally observed to occur and followed the process described above. 
+
+\subsection*{Causal effect estimates vary significantly across transcription factors}
+The results of our final meta-analysis step, shown in table \ref{tab:meta_results}, mply significant variation in the strength of causal relationships between different transcription factors and chromatin accessibility. While all causal effects are positive, certain transcription factors' binding seems to have a very large positive influence on chromatin accessibility. We intend to try and understand the degree to which this reflect modeling assumptions and matches experimental evidence in future work.
+
+\begin{table}[H]
+    \caption{Per-transcription factor causal effect estimates output by the final step of our algorithm. Columns 1 \& 2 contain estimates of the mean effect and its standard error. Column 3, $ \tau^2 $, contains estimates of variance in the mean produced by heterogeneity in the sequence-level causal effects. \\}
+    \label{tab:meta_results}
+\centering
+\begin{tabular}{l|l|l|l|l}
+\hline
+\multicolumn{1}{c|}{ } & \multicolumn{2}{c|}{Treatment Effect} & \multicolumn{2}{c}{Heterogeneity} \\
+\cline{2-3} \cline{4-5}
+TF & Mean & Std & $ I^2 $ & $ \tau^2 $\\
+\hline
+ATF3 & 5.682 & 0.304 & 1 & 2.281\\
+\hline
+BHLHE40 & 1.753 & 0.124 & 1 & 0.382\\
+\hline
+CEBPB & 0.404 & 0.019 & 1 & 0.009\\
+\hline
+CEBPD & 1.933 & 0.114 & 1 & 0.324\\
+\hline
+CTCF & 0.839 & 0.066 & 1 & 0.11\\
+\hline
+ELF1 & 2.116 & 0.103 & 1 & 0.265\\
+\hline
+EZH2 & 1.714 & 0.06 & 1 & 0.086\\
+\hline
+FOSL2 & 1.454 & 0.045 & 1 & 0.05\\
+\hline
+FOXA1 & 2.22 & 0.055 & 1 & 0.073\\
+\hline
+FOXA2 & 0.628 & 0.04 & 1 & 0.04\\
+\hline
+HDAC2 & 2.579 & 0.165 & 1 & 0.671\\
+\hline
+HNF4A & 2.446 & 0.127 & 1 & 0.402\\
+\hline
+HNF4G & 2.13 & 0.078 & 0.999 & 0.141\\
+\hline
+MBD4 & 7.513 & 0.368 & 1 & 3.326\\
+\hline
+MYBL2 & 1.704 & 0.18 & 1 & 0.808\\
+\hline
+NFIC & 1.612 & 0.14 & 1 & 0.489\\
+\hline
+RXRA & 2.328 & 0.111 & 1 & 0.309\\
+\hline
+SP1 & 1.411 & 0.072 & 1 & 0.126\\
+\hline
+SP2 & 8.927 & 0.114 & 1 & 0.31\\
+\hline
+SRF & 15.049 & 0.544 & 1 & 7.346\\
+\hline
+TAF1 & 1.359 & 0.115 & 1 & 0.333\\
+\hline
+TCF12 & 17.571 & 0.903 & 1 & 20.252\\
+\hline
+TEAD4 & 1.654 & 0.102 & 1 & 0.259\\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection*{Sequence-level causal effect estimates vary significantly for individual transcription factors}
+
+\section{Discussion}
+
+
+\bibliography{example_paper}
+\bibliographystyle{icml2020}
+\end{document}
+
+
+% This document was modified from the file originally made available by
+% Pat Langley and Andrea Danyluk for ICML-2K. This version was created
+% by Iain Murray in 2018, and modified by Alexandre Bouchard in
+% 2019 and 2020. Previous contributors include Dan Roy, Lise Getoor and Tobias
+% Scheffer, which was slightly modified from the 2010 version by
+% Thorsten Joachims & Johannes Fuernkranz, slightly modified from the
+% 2009 version by Kiri Wagstaff and Sam Roweis's 2008 version, which is
+% slightly modified from Prasad Tadepalli's 2007 version which is a
+% lightly changed version of the previous year's version by Andrew
+% Moore, which was in turn edited from those of Kristian Kersting and
+% Codrina Lauth. Alex Smola contributed to the algorithmic style files.
