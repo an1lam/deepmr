@@ -1,5 +1,5 @@
 if [[ $1 == "-f" ]]; then
-    gcloud compute scp --project coms-4995-260215 --zone us-west1-b --recurse gregor-2-vm:~/project/$2 $2
+    gcloud compute scp --project coms-4995-260215 --zone us-west1-b --recurse gregor-2-vm:~/project/$2 $3
 fi
 
 if [[ $1 == "-s" ]]; then
