@@ -19,7 +19,7 @@ from torch.nn import functional as F
 from tqdm.auto import tqdm
 
 
-from custom_dropout import apply_dropout, replace_dropout_layers, unapply_dropout
+from custom_dropout import apply_dropout
 
 
 def batches_needed(seq_len, batch_size, alpha_size=4):
@@ -96,12 +96,14 @@ def compute_normalized_prob(train_prob):
 
     Source: http://deepsea.princeton.edu/help/
     """
+
     def normalize(prob):
         log_uniform_prob = math.log(0.05 / (1 - 0.05))
         test_log_odds = np.log(prob / (1 - prob))
         train_log_odds = np.log(train_prob / (1 - train_prob))
         denom = 1 + np.exp(log_uniform_prob - test_log_odds - train_log_odds)
         return 1 / denom
+
     return normalize
 
 
@@ -112,16 +114,15 @@ def build_deepsea_normalizers(proportions_fpath):
     normalizers = {}
 
     for _, row in proportions_df.iterrows():
-        cell_type = row['Cell Type']
-        treatment = row['Treatment']
-        feature = row['TF/DNase/HistoneMark']
+        cell_type = row["Cell Type"]
+        treatment = row["Treatment"]
+        feature = row["TF/DNase/HistoneMark"]
         key = "_".join((cell_type, feature, treatment))
         if key not in normalizers:
-            norm_constant = row['Positive Proportion']
+            norm_constant = row["Positive Proportion"]
             normalizers[key] = compute_normalized_prob(norm_constant)
 
     return normalizers
-
 
 
 def compute_summary_statistics(preds, seqs, write_fpath=None):
@@ -138,22 +139,24 @@ def compute_summary_statistics(preds, seqs, write_fpath=None):
 
     ref_vars = np.var(ref_preds, axis=0, dtype=np.float32)
     mut_vars = np.var(mut_preds, axis=0, dtype=np.float32)
-    covs = np.zeros((n_seqs, n_nts-1, seq_len, n_cols))
+    covs = np.zeros((n_seqs, n_nts - 1, seq_len, n_cols))
     for seq_idx in tqdm(range(n_seqs)):
         for seq_pos in range(seq_len):
             for col in range(n_cols):
                 curr_ref_preds = ref_preds[:, seq_idx, 0, seq_pos, col]
-                for nt_pos in range(n_nts-1):
+                for nt_pos in range(n_nts - 1):
                     curr_mut_preds = mut_preds[:, seq_idx, nt_pos, seq_pos, col]
                     # Result will be a 2x2, symmetric matrix.
-                    cov = np.cov(np.stack((curr_ref_preds, curr_mut_preds)), ddof=0) 
+                    cov = np.cov(np.stack((curr_ref_preds, curr_mut_preds)), ddof=0)
                     # Get the variance (on the diagonal) and the covariance (off-diagonal).
                     assert np.allclose(cov[0, 0], ref_vars[seq_idx, 0, seq_pos, col])
-                    assert np.allclose(cov[1, 1], mut_vars[seq_idx, nt_pos, seq_pos, col])
+                    assert np.allclose(
+                        cov[1, 1], mut_vars[seq_idx, nt_pos, seq_pos, col]
+                    )
                     covs[seq_idx, nt_pos, seq_pos, col] = cov[0, 1]
 
     stderrs = np.sqrt(ref_vars + mut_vars - 2 * covs)
-    return means, mean_diffs, stderrs 
+    return means, mean_diffs, stderrs
 
 
 def get_matching_cols(all_column_names, desired_column_names):
@@ -171,6 +174,7 @@ def filter_predictions_to_matching_cols(relevant_cols):
 
     return _filter
 
+
 def write_results(result_fpath, diffs, stderrs, x_col=0, y_col=1):
     fieldnames = [
         "seq_num",
@@ -179,10 +183,10 @@ def write_results(result_fpath, diffs, stderrs, x_col=0, y_col=1):
         "Y_pred_mean",
         "Y_pred_var",
     ]
-    with open(result_fpath, 'w', newline="") as out_file:
+    with open(result_fpath, "w", newline="") as out_file:
         writer = csv.DictWriter(out_file, delimiter=",", fieldnames=fieldnames)
         writer.writeheader()
-        
+
         n_seqs, n_muts, seq_len, _ = diffs.shape
         for seq_idx in range(n_seqs):
             for seq_pos in range(seq_len):
@@ -201,33 +205,34 @@ def write_results(result_fpath, diffs, stderrs, x_col=0, y_col=1):
                         }
                     )
 
+
 def main(args):
-    if args.override_random_seed: torch.manual_seed(42)
+    if args.override_random_seed:
+        torch.manual_seed(42)
 
     genome_fpath = os.path.join(args.input_data_dir, args.genome_fname)
     peaks_fpath = os.path.join(args.input_data_dir, args.peaks_fname)
-    dl = SeqIntervalDl(
-        peaks_fpath, genome_fpath, auto_resize_len=args.auto_resize_len
-    )
+    dl = SeqIntervalDl(peaks_fpath, genome_fpath, auto_resize_len=args.auto_resize_len)
     data = dl.load_all()
     seqs = np.expand_dims(data["inputs"].transpose(0, 2, 1), 2).astype(np.float32)
     seqs = seqs.squeeze()
     if args.n_seqs > 0:
-        seqs = seqs[:args.n_seqs]
+        seqs = seqs[: args.n_seqs]
 
     preds_fpath = os.path.join(args.input_data_dir, args.preds_fname)
     if args.preds_action == "write":
         deepsea = kipoi.get_model(args.kipoi_model_name, source="kipoi")
+        deepsea = deepsea.model.apply(apply_dropout)
         x_col = get_matching_cols(
-            deepsea.schema.targets.column_labels, 
-            [args.x_column_name]
+            deepsea.schema.targets.column_labels, [args.x_column_name]
         )[0]
         y_col = get_matching_cols(
-            deepsea.schema.targets.column_labels, 
-            [args.y_column_name]
+            deepsea.schema.targets.column_labels, [args.y_column_name]
         )[0]
         if args.verbose:
-            logging.info("Using '%s' Kipoi DeepSEA model for predictions", args.kipoi_model_name)
+            logging.info(
+                "Using '%s' Kipoi DeepSEA model for predictions", args.kipoi_model_name
+            )
             logging.info("%s architecture:\n %r", args.kipoi_model_name, deepsea.model)
 
         n_seqs, n_nts, seq_len = seqs.shape
@@ -245,14 +250,13 @@ def main(args):
         for i, (_, col_name) in enumerate((x_col, y_col)):
             preds[:, :, :, i] = normalizers[col_name](preds[:, :, :, i])
 
-        with open(preds_fpath, 'wb') as f: pickle.dump(preds, f)
+        with open(preds_fpath, "wb") as f:
+            pickle.dump(preds, f)
     else:
-        with open(preds_fpath, 'rb') as f: preds = pickle.load(f)
+        with open(preds_fpath, "rb") as f:
+            preds = pickle.load(f)
 
-
-    means, diffs, stderrs = compute_summary_statistics(
-        preds, seqs
-    )
+    means, diffs, stderrs = compute_summary_statistics(preds, seqs)
 
     if args.verbose:
         print(f"Diffs shape: {diffs.shape}")
@@ -260,6 +264,7 @@ def main(args):
     if args.results_fname:
         results_fpath = os.path.join(args.output_data_dir, args.results_fname)
         write_results(results_fpath, diffs, stderrs)
+
 
 if __name__ == "__main__":
     logging.getLogger("").setLevel(logging.INFO)
@@ -273,8 +278,9 @@ if __name__ == "__main__":
     parser.add_argument("--kipoi_model_name", default="DeepSEA/predict")
     parser.add_argument("--auto_resize_len", type=int, default=1000)
     parser.add_argument(
-        "--feature_column_names", nargs="+", 
-        default=["HepG2_DNase_None", "HepG2_FOXA1_None"]
+        "--feature_column_names",
+        nargs="+",
+        default=["HepG2_DNase_None", "HepG2_FOXA1_None"],
     )
     parser.add_argument("--x_column_name", default="HepG2_FOXA1_None")
     parser.add_argument("--y_column_name", default="HepG2_DNase_None")
@@ -286,7 +292,9 @@ if __name__ == "__main__":
     parser.add_argument("--peaks_fname", default="50_random_seqs_2.bed")
     today = datetime.date(datetime.now())
     parser.add_argument("--preds_fname", default=f"predictions_{today}.pickle")
-    parser.add_argument("--proportions_fname", default="deepsea_normalization_constants.tsv")
+    parser.add_argument(
+        "--proportions_fname", default="deepsea_normalization_constants.tsv"
+    )
     parser.add_argument("--results_fname")
 
     # Mutagenesis related
