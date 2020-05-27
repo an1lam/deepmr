@@ -6,6 +6,7 @@ Let's start by importing the Mendelian Randomization package we're going to use 
 ```{r}
 library(MendelianRandomization)
 library(dplyr)
+library(ks)
 library(tidyverse)
 ```
 
@@ -19,13 +20,16 @@ First let's load our data into a dataframe. This dataframe has 5 non-null column
 ```{r}
 data_dir = "../../dat/"
 results_dir = "../../dat/res/"
-
+results_fname = "HepG2_EZH2_mutagenesis_results.csv"
+TF <- sapply(str_split(results_fname, "_"), function(x) x[2])
+cell_type <- sapply(str_split(results_fname, "_"), function(x) x[1])
 # seq_predictions = read.csv(file.path(data_dir, "effect_sizes__20200430__comparison_new.csv"))
-seq_predictions = read.csv(file.path(results_dir, "HepG2_EZH2_mutagenesis_results.csv"))
+
+seq_predictions = read.csv(file.path(results_dir, results_fname))
 is.nan.data.frame <- function(x)
 do.call(cbind, lapply(x, is.nan))
 
-seq_predictions[is.nan(seq_predictions)] <- 0
+# seq_predictions[is.nan(seq_predictions)] <- 0
 seq_predictions
 ```
 
@@ -42,7 +46,7 @@ seq_predictions <- seq_predictions %>%
 ivw_vals = list()
 egger_vals = list()
 
-egger_result <- matrix(ncol=7, nrow=25)
+egger_result <- matrix(ncol=8, nrow=25)
 
 
 for (seq in (1:25)) {
@@ -60,29 +64,73 @@ for (seq in (1:25)) {
   IVWObject <- mr_ivw(MRInputObject)
   # LMObject <- lm.fit(matrix(bxt), byt)
   # 
-  egger_result[seq, ] <- c(EggerObject$Estimate, EggerObject$CILower.Est, EggerObject$CIUpper.Est, EggerObject$I.sq, EggerObject$Pleio.pval, EggerObject$StdError.Est, EggerObject$Intercept)
-  ivw_result[seq, ] <- c(IVWObject$Estimate, IVWObject$CILower, IVWObject$CIUpper, IVWObject$StdError)
+  egger_result[seq, ] <- c(EggerObject$Estimate, EggerObject$CILower.Est, EggerObject$CIUpper.Est, EggerObject$I.sq, EggerObject$Pleio.pval, EggerObject$StdError.Est, EggerObject$Intercept, EggerObject$Pvalue.Est)
 }
 
-colnames(egger_result) <- c("ce", "cil", "ciu", "i.sq", "pleio", "std", "int")
+colnames(egger_result) <- c("ce", "cil", "ciu", "i.sq", "pleio", "std", "int", "pval")
 egger_result <- as_tibble(egger_result)
 ```
 
 ```{r}
-egger_result$int
-egger_result$pleio
+# egger_result$int
+# egger_result$pleio
+egger_result$pval
+egger_result$cil
+egger_result$ciu
 ```
 
 Now we have the causal effect estimates, confidence intervals, and (for Egger) pleiotropy p-values.
 ```{r}
-ivw_result
 egger_result
 ```
 
 Let's summarize the IVW & Egger causal effect estimates as histograms. This will give us an idea of how heterogeneous the alleged causal relationships are at different regions of the genome.
 ```{r}
-qplot(ce, data=ivw_result, binwidth=.25)
-qplot(ce, data=egger_result, binwidth=.25)
+d <- density(egger_result$ce)
+ce_smoothed <- ks::kde(
+  x=egger_result$ce,
+  binned=TRUE,
+  compute.cont=TRUE,
+  xmin=c(min(egger_result$ce) - 1),
+  xmax=c(max(egger_result$ce) + 1),
+  bgridsize=c(200)
+)
+
+output_fname <- str_c(cell_type, TF, "ces_kde.png", sep = "_")
+
+png(file.path("../../doc/icml-compbio-2020/fig/", output_fname), width = 512, height = 320)
+par(mar=c(5, 6, 5, 1)+.1)
+
+plot(ce_smoothed, xlab = "Causal Effect", main = str_c("Causal Effect Estimates (", TF, ")"), cex.lab = 2, cex.main = 2, ylab = "Density")
+
+dev.off()
+```
+
+```{r}
+output_fname <- str_c(cell_type, TF, "ex_eff_sizes_scatter.png", sep = "_")
+
+png(file.path("../../doc/icml-compbio-2020/fig/", output_fname), width = 512, height = 320)
+par(mar=c(5, 6, 5, 1)+.1)
+
+as.integer(length(egger_result$ce) / 2) + 1
+ex_predictions <- subset(seq_predictions, seq_num == as.integer(length(egger_result$ce) / 2) + 1)
+ex_predictions
+
+p <- plot(unlist(ex_predictions["X_pred_mean"]), unlist(ex_predictions["Y_pred_mean"]), xlab = "TF Effect Size", main = str_c("CA vs. TF Effect Sizes (", TF, ")"), cex.lab = 2, cex.main = 2, ylab = "CA Effect Size")
+
+dev.off()
+p
+```
+
+```{r}
+dmode <- function(x) {
+  den <- density(x, kernel=c("gaussian"))
+    ( den$x[den$y==max(den$y)] )   
+}  
+dmode(egger_result$ce)
+median(egger_result$ce) 
+length(egger_result$ce[egger_result$ce < 0])
+length(egger_result$ce)
 ```
 
 Let's also look at the distribution of pleiotropy p-values for different sequences. If they're concentrated around .5, this means that the algorithm believes there to be very little pleiotropy.
@@ -92,7 +140,7 @@ qplot(pleio, data=egger_result, binwidth=.04)
 ```
 
 ```{r}
-p <- ggplot2::ggplot(ivw_result, aes(x=ce, y=std)) + geom_point()
+p <- ggplot2::ggplot(egger_result, aes(x=ce, y=std)) + geom_point()
 p
 ```
 
