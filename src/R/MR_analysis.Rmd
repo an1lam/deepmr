@@ -1,8 +1,12 @@
 ---
 title: "Mendelian Randomization analysis of DeepSEA generated data"
 output: html_notebook
+params:
+  cell_type: "HepG2"
+  tf: "FOXA1"
+  output_dir: "../../fig/R/"
+  save_plots: F
 ---
-Let's start by importing the Mendelian Randomization package we're going to use and the always helpful `dbplyr` and `tidyverse` packages.
 ```{r}
 library(MendelianRandomization)
 library(dplyr)
@@ -11,63 +15,74 @@ library(tidyverse)
 ```
 
 First let's load our data into a dataframe. This dataframe has 5 non-null columns: 
-1. `seq_num`
+1. `seq_num`: Index of the DNA sequence from which the effect sizes and standard errors come.
 2. `X_pred_mean`: Effect size for the \( Z \rightarrow X \) relationship. Determined by taking the difference between predicted transcription factor binding probability for a reference sequence and a mutated version of the reference.
 3. `X_pred_var`: Standard error of the \( Z \rightarrow X \) effect size estimate.
 4. `Y_pred_mean`: Effect size for the \( Z \rightarrow Y \) relationship. Determined by taking the difference between predicted chromatin accessibility probability for a reference sequence and a mutated version of the reference.
 5. `Y_pred_var`: Standard error of the \( Z \rightarrow Y \) effect size estimate.
 
 ```{r}
-data_dir = "../../dat/"
-results_dir = "../../dat/res/"
-results_fname = "HepG2_EZH2_mutagenesis_results.csv"
-TF <- sapply(str_split(results_fname, "_"), function(x) x[2])
-cell_type <- sapply(str_split(results_fname, "_"), function(x) x[1])
-# seq_predictions = read.csv(file.path(data_dir, "effect_sizes__20200430__comparison_new.csv"))
+data_dir <- "../../dat/"
+results_dir <- "../../dat/res-reproduce/"
+tf <- params$tf
+cell_type <- params$cell_type
 
-seq_predictions = read.csv(file.path(results_dir, results_fname))
-is.nan.data.frame <- function(x)
-do.call(cbind, lapply(x, is.nan))
+results_fname <- str_c(cell_type, tf, "mutagenesis_results.csv", sep = "_")
+seq_predictions <- read.csv(file.path(results_dir, results_fname))
+is.nan.data.frame <- function(x) {
+  do.call(cbind, lapply(x, is.nan))
+}
 
-# seq_predictions[is.nan(seq_predictions)] <- 0
 seq_predictions
-```
-
-Before we do anything else, we have to make our data compatible with MR-Egger regression. MR-Egger requires that we change the signs of all of our \( X \rightarrow Y \) effect sizes to be positive. Let's do that now.
-```{r}
-seq_predictions <- seq_predictions %>%
-  filter(
-    X_pred_var > 0 & Y_pred_var > 0
-  )
+n_seqs <- max(seq_predictions["seq_num"])
+print(str_c("Running on ", n_seqs, " sequences' predictions"))
 ```
 
 
 ```{r}
-ivw_vals = list()
-egger_vals = list()
+ivw_vals <- list()
+egger_vals <- list()
 
-egger_result <- matrix(ncol=8, nrow=25)
+egger_result <- matrix(ncol = 8, nrow = n_seqs)
 
 
-for (seq in (1:25)) {
-  seq_i_predictions = subset(seq_predictions, seq_num == seq)
+for (seq in (1:n_seqs)) {
+  seq_i_predictions <- subset(seq_predictions, seq_num == seq)
 
   bxt <- unlist(seq_i_predictions["X_pred_mean"])
   bxset <- unlist(seq_i_predictions["X_pred_var"])
   byt <- unlist(seq_i_predictions["Y_pred_mean"])
   byset <- unlist(seq_i_predictions["Y_pred_var"])
-  MRInputObject <- mr_input(bx = bxt,
-                            bxse = bxset,
-                            by = byt,
-                            byse = byset)
+  MRInputObject <- mr_input(
+    bx = bxt,
+    bxse = bxset,
+    by = byt,
+    byse = byset
+  )
   EggerObject <- mr_egger(MRInputObject)
   IVWObject <- mr_ivw(MRInputObject)
-  # LMObject <- lm.fit(matrix(bxt), byt)
-  # 
-  egger_result[seq, ] <- c(EggerObject$Estimate, EggerObject$CILower.Est, EggerObject$CIUpper.Est, EggerObject$I.sq, EggerObject$Pleio.pval, EggerObject$StdError.Est, EggerObject$Intercept, EggerObject$Pvalue.Est)
+  egger_result[seq, ] <- c(
+    EggerObject$Estimate,
+    EggerObject$CILower.Est,
+    EggerObject$CIUpper.Est,
+    EggerObject$I.sq,
+    EggerObject$Pleio.pval,
+    EggerObject$StdError.Est,
+    EggerObject$Intercept,
+    EggerObject$Pvalue.Est
+  )
 }
 
-colnames(egger_result) <- c("ce", "cil", "ciu", "i.sq", "pleio", "std", "int", "pval")
+colnames(egger_result) <- c(
+  "ce",
+  "cil",
+  "ciu",
+  "i.sq",
+  "pleio",
+  "std",
+  "int",
+  "pval"
+)
 egger_result <- as_tibble(egger_result)
 ```
 
@@ -88,47 +103,61 @@ Let's summarize the IVW & Egger causal effect estimates as histograms. This will
 ```{r}
 d <- density(egger_result$ce)
 ce_smoothed <- ks::kde(
-  x=egger_result$ce,
-  binned=TRUE,
-  compute.cont=TRUE,
-  xmin=c(min(egger_result$ce) - 1),
-  xmax=c(max(egger_result$ce) + 1),
-  bgridsize=c(200)
+  x = egger_result$ce,
+  binned = TRUE,
+  compute.cont = TRUE,
+  xmin = c(min(egger_result$ce) - 1),
+  xmax = c(max(egger_result$ce) + 1),
+  bgridsize = c(200)
 )
 
-output_fname <- str_c(cell_type, TF, "ces_kde.png", sep = "_")
-
-png(file.path("../../doc/icml-compbio-2020/fig/", output_fname), width = 512, height = 320)
-par(mar=c(5, 6, 5, 1)+.1)
-
-plot(ce_smoothed, xlab = "Causal Effect", main = str_c("Causal Effect Estimates (", TF, ")"), cex.lab = 2, cex.main = 2, ylab = "Density")
-
-dev.off()
+if (params$save_plots) {
+  output_fname <- str_c(cell_type, tf, "ces_kde.png", sep = "_")
+  output_fpath <- file.path(params$output_dir, output_fname)
+  png(output_fpath, width = 512, height = 320)
+  par(mar = c(5, 6, 5, 1) + .1)
+}
+plot(
+  ce_smoothed,
+  xlab = "Causal Effect",
+  main = str_c("Causal Effect Estimates (", tf, ")"),
+  cex.lab = 2,
+  cex.main = 2,
+  ylab = "Density"
+)
+if (params$save_plots) {
+  dev.off()
+}
 ```
 
 ```{r}
-output_fname <- str_c(cell_type, TF, "ex_eff_sizes_scatter.png", sep = "_")
 
-png(file.path("../../doc/icml-compbio-2020/fig/", output_fname), width = 512, height = 320)
-par(mar=c(5, 6, 5, 1)+.1)
+if (params$save_plots) {
+  png(file.path(params$output_dir, output_fname), width = 512, height = 320)
+}
+par(mfrow=c(2, 2))
 
-as.integer(length(egger_result$ce) / 2) + 1
-ex_predictions <- subset(seq_predictions, seq_num == as.integer(length(egger_result$ce) / 2) + 1)
-ex_predictions
+for (seq in (1:n_seqs)) {
+  seq_i_predictions <- subset(seq_predictions, seq_num == seq)
 
-p <- plot(unlist(ex_predictions["X_pred_mean"]), unlist(ex_predictions["Y_pred_mean"]), xlab = "TF Effect Size", main = str_c("CA vs. TF Effect Sizes (", TF, ")"), cex.lab = 2, cex.main = 2, ylab = "CA Effect Size")
+  bxset <- unlist(seq_i_predictions["X_pred_var"])
+  byset <- unlist(seq_i_predictions["Y_pred_var"])
+  
+  plot(bxset, byset, main = str_c("CA vs. TF std error"))
+}
 
-dev.off()
-p
+if (params$save_plots) {
+  dev.off()
+}
 ```
 
 ```{r}
 dmode <- function(x) {
-  den <- density(x, kernel=c("gaussian"))
-    ( den$x[den$y==max(den$y)] )   
-}  
+  den <- density(x, kernel = c("gaussian"))
+  (den$x[den$y == max(den$y)])
+}
 dmode(egger_result$ce)
-median(egger_result$ce) 
+median(egger_result$ce)
 length(egger_result$ce[egger_result$ce < 0])
 length(egger_result$ce)
 ```
@@ -136,11 +165,12 @@ length(egger_result$ce)
 Let's also look at the distribution of pleiotropy p-values for different sequences. If they're concentrated around .5, this means that the algorithm believes there to be very little pleiotropy.
 
 ```{r}
-qplot(pleio, data=egger_result, binwidth=.04)
+qplot(pleio, data = egger_result, binwidth = .04)
 ```
 
 ```{r}
-p <- ggplot2::ggplot(egger_result, aes(x=ce, y=std)) + geom_point()
+p <- ggplot2::ggplot(egger_result, aes(x = ce, y = std)) +
+  geom_point()
 p
 ```
 

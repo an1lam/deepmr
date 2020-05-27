@@ -9,14 +9,13 @@ library(MendelianRandomization)
 library(dplyr)
 library(meta)
 library(knitr)
-install.packages("ggstance")
 library(ggstance)
 library(kableExtra)
 library(tidyverse)
 ```
 
 ```{r}
-files <- list.files(path="../../dat/res/", "*.csv")
+files <- list.files(path="../../dat/res-reproduce/", "*.csv")
 
 result <- matrix(ncol=5, nrow=length(files))
 all_ces <- c()
@@ -28,22 +27,16 @@ is.nan.data.frame <- function(x) {
 
 for (i in 1:length(files)) {
   f <- files[i]
-  seq_predictions <- read.csv(file.path("../../dat/res/", f))
-
-  seq_predictions[is.nan(seq_predictions)] <- 0
-  seq_predictions <- seq_predictions %>%
-    filter(
-      X_pred_var > 0 & Y_pred_var > 0
-    )
+  seq_predictions <- read.csv(file.path("../../dat/res-reproduce/", f))
 
   ivw_vals = list()
   egger_vals = list()
 
-  egger_result <- matrix(ncol=6, nrow=25)
-  ivw_result <- matrix(ncol=4, nrow=25)
+  n_seqs <- max(seq_predictions["seq_num"])
+  egger_result <- matrix(ncol=6, nrow=n_seqs)
+  ivw_result <- matrix(ncol=4, nrow=n_seqs)
 
-
-  for (seq in (1:25)) {
+  for (seq in (1:n_seqs)) {
     seq_i_predictions = subset(seq_predictions, seq_num == seq)
 
     bxt <- unlist(seq_i_predictions["X_pred_mean"])
@@ -87,8 +80,8 @@ ce_smoothed <- ks::kde(
   bgridsize=c(200)
 )
 
-png(file.path("../../doc/icml-compbio-2020/fig/", "all_tfs_ces_kde.png"), width = 512, height = 320)
-par(mar=c(5, 6, 5, 1)+.1)
+# png(file.path("../../doc/icml-compbio-2020/fig/", "all_tfs_ces_kde.png"), width = 512, height = 320)
+# par(mar=c(5, 6, 5, 1)+.1)
 
 plot(ce_smoothed, main = "Causal Effect Estimates (All TFs)",xlab = "Causal Effect", ylab = "Density", cex.main = 2, cex.lab = 2, ratio = 2)
 ```
@@ -104,6 +97,7 @@ median(all_ces)
 length(all_ces[all_ces < 0])
 length(all_ces)
 
+meta_result$TE.random
 meta_result$tau
 meta_result$seTE.random
 ```
@@ -129,59 +123,4 @@ p + labs(title="TF→Chromatin Accessibility Causal Effects", y="TF", x= "Effect
    theme_classic() +
    scale_fill_manual(values=c('#999999','#E69F00'))
 ggsave("test.png")
-```
-
-```{r}
-# for (i in 1:2) {
-#   f <- files[i]
-#   # print(f)
-#   #
-#   seq_predictions = read.csv(file.path("../../dat/res/", f))
-#   # # do.call(cbind, lapply(x, is.nan))
-# 
-#   seq_predictions[is.nan(seq_predictions)] <- 0
-#   seq_predictions <- seq_predictions %>%
-#     filter(
-#       X_pred_var > 0 & Y_pred_var > 0
-#     )
-# 
-#   ivw_vals = list()
-#   egger_vals = list()
-# 
-#   egger_result <- matrix(ncol=6, nrow=25)
-#   ivw_result <- matrix(ncol=4, nrow=25)
-# 
-# 
-#   for (seq in (1:25)) {
-#     seq_i_predictions = subset(seq_predictions, seq_num == seq)
-# 
-#     bxt <- unlist(seq_i_predictions["X_pred_mean"])
-#     bxset <- unlist(seq_i_predictions["X_pred_var"])
-#     byt <- unlist(seq_i_predictions["Y_pred_mean"])
-#     byset <- unlist(seq_i_predictions["Y_pred_var"])
-#     MRInputObject <- mr_input(bx = bxt,
-#                               bxse = bxset,
-#                               by = byt,
-#                               byse = byset)
-#     EggerObject <- mr_egger(MRInputObject)
-#     IVWObject <- mr_ivw(MRInputObject)
-# 
-#     egger_result[seq, ] <- c(
-#       EggerObject$Estimate,
-#       EggerObject$CILower.Est,
-#       EggerObject$CIUpper.Est,
-#       EggerObject$I.sq,
-#       EggerObject$Pleio.pval,
-#       EggerObject$StdError.Est
-#     )
-#     ivw_result[seq, ] <- c(IVWObject$Estimate, IVWObject$CILower, IVWObject$CIUpper, IVWObject$StdError)
-#   }
-# 
-#   colnames(egger_result) <- c("ce", "cil", "ciu", "i.sq", "pleio", "std")
-#   egger_result <- as_tibble(egger_result)
-#   meta_result <- meta::metagen(egger_result$ce, egger_result$std)
-# 
-#   p <- qplot(ce, data=egger_result, binwidth=.25)
-#   result[i, ] <- c(f, round(c(meta_result$TE.random, meta_result$seTE.random, meta_result$pval.random, meta_result$tau2), digits = 3))
-# }
 ```
