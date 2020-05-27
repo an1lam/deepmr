@@ -444,15 +444,15 @@ the offending package(s), or layout-changing commands and try again.
 %#1\@for\theaffil:=#2\do{\pa{\theaffil}}%
 %}
 \newcommand{\icmlauthor}[2]{%
-  \ifdefined\isaccepted
+%   \ifdefined\isaccepted
     \mbox{\bf #1}\,\@for\theaffil:=#2\do{\@pa{\theaffil}} \addtofullauthorlist{#1}%
-   \else
-    \ifdefined\@icmlfirsttime
-    \else
-      \gdef\@icmlfirsttime{1}
-      \mbox{\bf Anonymous Authors}\@pa{@anon} \addtofullauthorlist{Anonymous Authors}
-     \fi
-    \fi
+%   \else
+    % \ifdefined\@icmlfirsttime
+    % \else
+    %   \gdef\@icmlfirsttime{1}
+    %   \mbox{\bf Anonymous Authors}\@pa{@anon} \addtofullauthorlist{Anonymous Authors}
+    %  \fi
+    % \fi
 }
 
 \newcommand{\icmlsetsymbol}[2]{%
@@ -461,37 +461,37 @@ the offending package(s), or layout-changing commands and try again.
    
 
 \newcommand{\icmlaffiliation}[2]{%
-\ifdefined\isaccepted
-\ifcsname the@affil#1\endcsname
+% \ifdefined\isaccepted
+% \ifcsname the@affil#1\endcsname
  \expandafter\gdef\csname @affilname\csname the@affil#1\endcsname\endcsname{#2}%
-\else
-  {\bf AUTHORERR: Error in use of \textbackslash{}icmlaffiliation command. Label ``#1'' not mentioned in some \textbackslash{}icmlauthor\{author name\}\{labels here\} command beforehand. }
-  \typeout{}%
-  \typeout{}%
-  \typeout{*******************************************************}%
-  \typeout{Affiliation label undefined. }%
-  \typeout{Make sure \string\icmlaffiliation\space follows }
-  \typeout{all of \string\icmlauthor\space commands}%
-  \typeout{*******************************************************}%
-  \typeout{}%
-  \typeout{}%
-\fi
-\else % \isaccepted
+% \else
+%   {\bf AUTHORERR: Error in use of \textbackslash{}icmlaffiliation command. Label ``#1'' not mentioned in some \textbackslash{}icmlauthor\{author name\}\{labels here\} command beforehand. }
+%   \typeout{}%
+%   \typeout{}%
+%   \typeout{*******************************************************}%
+%   \typeout{Affiliation label undefined. }%
+%   \typeout{Make sure \string\icmlaffiliation\space follows }
+%   \typeout{all of \string\icmlauthor\space commands}%
+%   \typeout{*******************************************************}%
+%   \typeout{}%
+%   \typeout{}%
+% \fi
+% \else % \isaccepted
  % can be called multiple times... it's idempotent
- \expandafter\gdef\csname @affilname1\endcsname{Anonymous Institution, Anonymous City, Anonymous Region, Anonymous Country}
-\fi
+%  \expandafter\gdef\csname @affilname1\endcsname{Anonymous Institution, Anonymous City, Anonymous Region, Anonymous Country}
+% \fi
 }
 
 \newcommand{\icmlcorrespondingauthor}[2]{
-\ifdefined\isaccepted
+% \ifdefined\isaccepted
  \ifdefined\icmlcorrespondingauthor@text
    \g@addto@macro\icmlcorrespondingauthor@text{, #1 \textless{}#2\textgreater{}}
  \else
    \gdef\icmlcorrespondingauthor@text{#1 \textless{}#2\textgreater{}}
  \fi
-\else
-\gdef\icmlcorrespondingauthor@text{Anonymous Author \textless{}anon.email@domain.com\textgreater{}}
-\fi
+% \else
+% \gdef\icmlcorrespondingauthor@text{Anonymous Author \textless{}anon.email@domain.com\textgreater{}}
+% \fi
 }
 
 \newcommand{\icmlEqualContribution}{\textsuperscript{*}Equal contribution }
