@@ -222,7 +222,7 @@ def main(args):
     preds_fpath = os.path.join(args.input_data_dir, args.preds_fname)
     if args.preds_action == "write":
         deepsea = kipoi.get_model(args.kipoi_model_name, source="kipoi")
-        deepsea = deepsea.model.apply(apply_dropout)
+        deepsea.model.apply(apply_dropout)
         x_col = get_matching_cols(
             deepsea.schema.targets.column_labels, [args.x_column_name]
         )[0]
