@@ -5,13 +5,15 @@ params:
   cell_type: "HepG2"
   tf: "FOXA1"
   output_dir: "../../fig/R/"
-  save_plots: F
+  save_plots: T
 ---
 ```{r}
 library(MendelianRandomization)
 library(dplyr)
 library(ks)
 library(tidyverse)
+library(ggplot2)
+library(stringr)
 ```
 
 First let's load our data into a dataframe. This dataframe has 5 non-null columns: 
@@ -23,7 +25,7 @@ First let's load our data into a dataframe. This dataframe has 5 non-null column
 
 ```{r}
 data_dir <- "../../dat/"
-results_dir <- "../../dat/res-reproduce/"
+results_dir <- "../../dat/res-repro/"
 tf <- params$tf
 cell_type <- params$cell_type
 
@@ -35,7 +37,7 @@ is.nan.data.frame <- function(x) {
 
 seq_predictions
 n_seqs <- max(seq_predictions["seq_num"])
-print(str_c("Running on ", n_seqs, " sequences' predictions"))
+print(str_c("Running on ", n_seqs, " sequences' predictions for tf ", tf))
 ```
 
 
@@ -44,7 +46,7 @@ ivw_vals <- list()
 egger_vals <- list()
 
 egger_result <- matrix(ncol = 8, nrow = n_seqs)
-
+plots <- c()
 
 for (seq in (1:n_seqs)) {
   seq_i_predictions <- subset(seq_predictions, seq_num == seq)
@@ -60,7 +62,7 @@ for (seq in (1:n_seqs)) {
     byse = byset
   )
   EggerObject <- mr_egger(MRInputObject)
-  IVWObject <- mr_ivw(MRInputObject)
+  plots <- c(plots, mr_plot(MRInputObject))
   egger_result[seq, ] <- c(
     EggerObject$Estimate,
     EggerObject$CILower.Est,
@@ -84,6 +86,7 @@ colnames(egger_result) <- c(
   "pval"
 )
 egger_result <- as_tibble(egger_result)
+  plots
 ```
 
 ```{r}
@@ -120,7 +123,7 @@ if (params$save_plots) {
 plot(
   ce_smoothed,
   xlab = "Causal Effect",
-  main = str_c("Causal Effect Estimates (", tf, ")"),
+  # main = str_c("Causal Effect Estimates (", tf, ")"),
   cex.lab = 2,
   cex.main = 2,
   ylab = "Density"
@@ -131,24 +134,49 @@ if (params$save_plots) {
 ```
 
 ```{r}
+sorted_idxs <- sort(egger_result$ce, index.return=TRUE)$ix
+median_idx <- as.integer(length(sorted_idxs) / 2) + 1
+seq_median_preds <- subset(seq_predictions, seq_num == 25)
 
-if (params$save_plots) {
-  png(file.path(params$output_dir, output_fname), width = 512, height = 320)
-}
-par(mfrow=c(2, 2))
+bxt <- unlist(seq_median_preds["X_pred_mean"])
+bxset <- unlist(seq_median_preds["X_pred_var"])
+byt <- unlist(seq_median_preds["Y_pred_mean"])
+byset <- unlist(seq_median_preds["Y_pred_var"])
 
-for (seq in (1:n_seqs)) {
-  seq_i_predictions <- subset(seq_predictions, seq_num == seq)
+MRInputObject <- mr_input(
+  bx = bxt,
+  bxse = bxset,
+  by = byt,
+  byse = byset
+)
+MedianEggerObj <- mr_egger(MRInputObject)
+```
 
-  bxset <- unlist(seq_i_predictions["X_pred_var"])
-  byset <- unlist(seq_i_predictions["Y_pred_var"])
-  
-  plot(bxset, byset, main = str_c("CA vs. TF std error"))
-}
 
-if (params$save_plots) {
-  dev.off()
-}
+```{r}
+mr_plot(MRInputObject, line="egger")
+```
+
+
+```{r}
+
+# if (params$save_plots) {
+#   png(file.path(params$output_dir, output_fname), width = 512, height = 320)
+# }
+# par(mfrow=c(2, 2))
+# 
+# for (seq in (1:n_seqs)) {
+#   seq_i_predictions <- subset(seq_predictions, seq_num == seq)
+# 
+#   bxset <- unlist(seq_i_predictions["X_pred_var"])
+#   byset <- unlist(seq_i_predictions["Y_pred_var"])
+#   
+#   plot(bxset, byset, main = str_c("CA vs. TF std error"))
+# }
+# 
+# if (params$save_plots) {
+#   dev.off()
+# }
 ```
 
 ```{r}
@@ -175,5 +203,16 @@ p
 ```
 
 ```{r}
+if (params$save_plots) {
+  output_fname <- str_c(cell_type, tf, "ex_eff_sizes.png", sep = "_")
+  output_fpath <- file.path(params$output_dir, output_fname)
+  png(output_fpath, width = 512, height = 320)
+  par(mar = c(5, 6, 5, 1) + .1)
+}
+
 plot(bxt, byt)
+
+if (params$save_plots) {
+  dev.off()
+}
 ```
