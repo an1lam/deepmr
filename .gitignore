@@ -294,3 +294,9 @@ vignettes/*.pdf
 
 # R Environment Variables
 .Renviron
+
+# Figures
+fig/
+
+# Logs
+src/wandb

@@ -7,7 +7,6 @@ import os
 import pickle
 
 import kipoi
-from kipoi_interpret.importance_scores.ism import Mutation
 from kipoiseq.dataloaders import SeqIntervalDl
 from matplotlib import pyplot as plt
 import numpy as np
@@ -125,7 +124,18 @@ def build_deepsea_normalizers(proportions_fpath):
     return normalizers
 
 
-def compute_summary_statistics(preds, seqs, write_fpath=None):
+def compute_summary_statistics(preds, seqs):
+    """
+    Compute summary statistics for predictions.
+
+    Args:
+        preds: np.ndarray
+            Should have shape: 
+            `replicates x n sequences x alphabet size x sequence length x n features`.
+        seqs: np.ndarray
+            A one-hot encoded representation of NT sequences.
+            Should have shape: `n sequences x alphabet size x sequence length`.
+    """
     n_seqs, n_nts, seq_len = seqs.shape
     epochs, n_cols = preds.shape[0], preds.shape[-1]
 
