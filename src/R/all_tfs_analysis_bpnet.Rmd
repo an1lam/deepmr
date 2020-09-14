@@ -1,0 +1,126 @@
+---
+title: "Mendelian Randomization analysis of BPNet generated data"
+output: html_notebook
+---
+
+```{r}
+library(MendelianRandomization)
+library(dplyr)
+library(meta)
+library(knitr)
+library(ggstance)
+library(kableExtra)
+library(tidyverse)
+```
+
+```{r}
+base_path <- "../../dat/res-bpnet-2020-09-09/"
+files <- list.files(path=base_path, "*.csv")
+
+result <- matrix(ncol=5, nrow=length(files))
+all_ces <- c()
+
+
+is.nan.data.frame <- function(x) {
+  do.call(cbind, lapply(x, is.nan))
+}
+
+for (i in 1:length(files)) {
+  f <- files[i]
+  seq_predictions <- read.csv(file.path(base_path, f))
+
+  ivw_vals = list()
+  egger_vals = list()
+
+  n_seqs <- max(seq_predictions["seq_num"])
+  egger_result <- matrix(ncol=6, nrow=n_seqs)
+  ivw_result <- matrix(ncol=4, nrow=n_seqs)
+
+  for (seq in (1:n_seqs)) {
+    seq_i_predictions = subset(seq_predictions, seq_num == seq)
+
+    bxt <- unlist(seq_i_predictions["X_pred_mean"])
+    bxset <- unlist(seq_i_predictions["X_pred_var"])
+    byt <- unlist(seq_i_predictions["Y_pred_mean"])
+    byset <- unlist(seq_i_predictions["Y_pred_var"])
+    MRInputObject <- mr_input(bx = bxt,
+                              bxse = bxset,
+                              by = byt,
+                              byse = byset)
+    EggerObject <- mr_egger(MRInputObject)
+    IVWObject <- mr_ivw(MRInputObject)
+
+    egger_result[seq, ] <- c(
+      EggerObject$Estimate,
+      EggerObject$CILower.Est,
+      EggerObject$CIUpper.Est,
+      EggerObject$I.sq,
+      EggerObject$Pleio.pval,
+      EggerObject$StdError.Est
+    )
+    all_ces <- c(all_ces, EggerObject$Estimate)
+  }
+
+  colnames(egger_result) <- c("ce", "cil", "ciu", "i.sq", "pleio", "std")
+  egger_result <- as_tibble(egger_result)
+  meta_result <- meta::metagen(egger_result$ce, egger_result$std)
+
+  result[i, ] <- c(
+    f, meta_result$TE.random, meta_result$seTE.random, meta_result$pval.random, 
+    meta_result$tau
+  )
+}
+```
+
+```{r}
+p <- qplot(ce, data=egger_result, binwidth=.25)
+ce_smoothed <- ks::kde(
+  x=all_ces,
+  binned=TRUE,
+  compute.cont=TRUE,
+  xmin=min(all_ces)-1,
+  xmax=max(all_ces)+1,
+  bgridsize=c(200)
+)
+
+# png(file.path("../../doc/icml-compbio-2020/fig/", "all_tfs_ces_kde.png"), width = 512, height = 320)
+# par(mar=c(5, 6, 5, 1)+.1)
+
+plot(ce_smoothed, main = "Causal Effect Estimates (All TFs)",xlab = "Causal Effect", ylab = "Density", cex.main = 2, cex.lab = 2, ratio = 2)
+```
+
+```{r}
+dmode <- function(x) {
+  den <- density(x, kernel=c("gaussian"))
+    ( den$x[den$y==max(den$y)] )   
+}  
+quantile(all_ces)
+dmode(all_ces)
+median(all_ces) 
+length(all_ces[all_ces < 0])
+length(all_ces)
+
+meta_result$TE.random
+meta_result$tau
+meta_result$seTE.random
+```
+
+```{r}
+
+options(digits = 5)
+colnames(result) <- c("TF", "Mean", "Std", "$ p $", "tau2")
+formatted_result <- data.frame(result)
+formatted_result$Mean <- as.numeric(as.character(formatted_result$Mean))
+formatted_result$Std <- as.numeric(as.character(formatted_result$Std))
+formatted_result$tau2 <- as.numeric(as.character(formatted_result$tau2))
+
+p <- ggplot(data=formatted_result, aes(y=TF, x=Mean), width = 956, height = 432) + 
+    geom_barh( aes(y=TF, x=Mean), stat="identity", fill="skyblue", alpha=0.5) +
+    geom_errorbarh( aes(xmin=Mean-Std, xmax=Mean+Std), colour = "blue", alpha=.8, size=1) +
+    geom_errorbarh( aes(xmin=Mean-sqrt(tau2), xmax=Mean+sqrt(tau2)), colour="orange", alpha=0.9, size=1.3 ) +
+    coord_fixed(ratio = .4)
+p + labs(title="TF→TF Causal Effects", y="TF", x= "Effect (Mean)")+
+   theme_classic() +
+   scale_fill_manual(values=c('#999999','#E69F00'))
+ggsave("test.png")
+```

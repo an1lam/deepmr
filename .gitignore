@@ -252,6 +252,7 @@ __pycache__
 venv
 *.so
 .ipynb_checkpoints
+.nb.html
 
 .Rproj.user
 

@@ -86,7 +86,6 @@ colnames(egger_result) <- c(
   "pval"
 )
 egger_result <- as_tibble(egger_result)
-  plots
 ```
 
 ```{r}
@@ -136,7 +135,7 @@ if (params$save_plots) {
 ```{r}
 sorted_idxs <- sort(egger_result$ce, index.return=TRUE)$ix
 median_idx <- as.integer(length(sorted_idxs) / 2) + 1
-seq_median_preds <- subset(seq_predictions, seq_num == 25)
+seq_median_preds <- subset(seq_predictions, seq_num == median_idx)
 
 bxt <- unlist(seq_median_preds["X_pred_mean"])
 bxset <- unlist(seq_median_preds["X_pred_var"])
@@ -160,23 +159,23 @@ mr_plot(MRInputObject, line="egger")
 
 ```{r}
 
-# if (params$save_plots) {
-#   png(file.path(params$output_dir, output_fname), width = 512, height = 320)
-# }
-# par(mfrow=c(2, 2))
-# 
-# for (seq in (1:n_seqs)) {
-#   seq_i_predictions <- subset(seq_predictions, seq_num == seq)
-# 
-#   bxset <- unlist(seq_i_predictions["X_pred_var"])
-#   byset <- unlist(seq_i_predictions["Y_pred_var"])
-#   
-#   plot(bxset, byset, main = str_c("CA vs. TF std error"))
-# }
-# 
-# if (params$save_plots) {
-#   dev.off()
-# }
+if (params$save_plots) {
+  png(file.path(params$output_dir, output_fname), width = 512, height = 320)
+}
+par(mfrow=c(2, 2))
+
+for (seq in (1:n_seqs)) {
+  seq_i_predictions <- subset(seq_predictions, seq_num == seq)
+
+  bxset <- unlist(seq_i_predictions["X_pred_var"])
+  byset <- unlist(seq_i_predictions["Y_pred_var"])
+  
+  plot(bxset, byset, main = str_c("CA vs. TF std error"))
+}
+
+if (params$save_plots) {
+  dev.off()
+}
 ```
 
 ```{r}
@@ -210,7 +209,7 @@ if (params$save_plots) {
   par(mar = c(5, 6, 5, 1) + .1)
 }
 
-plot(bxt, byt)
+plot(bxt, byt, xlab="FOXA1 Effect Sizes", ylab="Chromatin Accessibility Effect Sizes")
 
 if (params$save_plots) {
   dev.off()

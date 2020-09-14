@@ -15,8 +15,9 @@ library(tidyverse)
 ```
 
 ```{r}
-files <- list.files(path="../../dat/res-reproduce/", "*.csv")
+files <- list.files(path="../../dat/res-repro/", "*.csv")
 
+print(files)
 result <- matrix(ncol=5, nrow=length(files))
 all_ces <- c()
 
@@ -27,7 +28,7 @@ is.nan.data.frame <- function(x) {
 
 for (i in 1:length(files)) {
   f <- files[i]
-  seq_predictions <- read.csv(file.path("../../dat/res-reproduce/", f))
+  seq_predictions <- read.csv(file.path("../../dat/res-repro/", f))
 
   ivw_vals = list()
   egger_vals = list()
@@ -80,10 +81,10 @@ ce_smoothed <- ks::kde(
   bgridsize=c(200)
 )
 
-# png(file.path("../../doc/icml-compbio-2020/fig/", "all_tfs_ces_kde.png"), width = 512, height = 320)
-# par(mar=c(5, 6, 5, 1)+.1)
+png(file.path("../../fig/R/", "all_tfs_ces_kde.png"), width = 512, height = 320)
+par(mar=c(5, 6, 5, 1)+.1)
 
-plot(ce_smoothed, main = "Causal Effect Estimates (All TFs)",xlab = "Causal Effect", ylab = "Density", cex.main = 2, cex.lab = 2, ratio = 2)
+plot(ce_smoothed, xlab = "Causal Effect", ylab = "Density", cex.main = 2, cex.lab = 2, ratio = 2)
 ```
 
 ```{r}
