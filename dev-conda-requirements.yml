@@ -2,33 +2,51 @@ name: deepmr
 channels:
   - pytorch
   - bioconda
+  - conda-forge
   - defaults
 dependencies:
   - _libgcc_mutex=0.1=main
+  - attrs=19.3.0=py_0
+  - backcall=0.2.0=pyh9f0ad1d_0
   - bcolz=1.2.1=py36h04863e7_0
   - bedtools=2.29.2=hc088bd4_0
+  - biopython=1.77=py36h8c4c3a4_0
   - blas=1.0=mkl
+  - bleach=3.1.5=pyh9f0ad1d_0
   - blosc=1.19.0=hd408876_0
   - bokeh=2.1.1=py36_0
   - bzip2=1.0.8=h7b6447c_0
-  - ca-certificates=2020.6.24=0
+  - ca-certificates=2020.7.22=0
   - certifi=2020.6.20=py36_0
   - cffi=1.14.0=py36he30daa8_1
   - click=7.1.2=py_0
   - cloudpickle=1.5.0=py_0
   - cpuonly=1.0=0
   - curl=7.71.0=hbc83047_0
+  - cython=0.29.21=py36h831f99a_0
   - cytoolz=0.10.1=py36h7b6447c_0
   - dask=1.1.4=py36_1
   - dask-core=1.1.4=py36_1
+  - decorator=4.4.2=py_0
+  - defusedxml=0.6.0=py_0
   - distributed=1.28.1=py36_0
+  - entrypoints=0.3=py36h9f0ad1d_1001
   - freetype=2.10.2=h5ab3b9f_0
   - genomelake=0.1.4=py36h516909a_2
   - hdf5=1.10.4=hb1b8bf9_0
   - heapdict=1.0.1=py_0
+  - importlib-metadata=1.7.0=py36h9f0ad1d_0
+  - importlib_metadata=1.7.0=0
   - intel-openmp=2020.1=217
+  - ipykernel=5.3.2=py36h95af2a2_0
+  - ipython=7.16.1=py36h95af2a2_0
+  - ipython_genutils=0.2.0=py_1
+  - ipywidgets=7.5.1=py_0
+  - jedi=0.17.1=py36h9f0ad1d_0
   - jinja2=2.11.2=py_0
   - jpeg=9b=h024ee3a_2
+  - jsonschema=3.2.0=py36h9f0ad1d_1
+  - jupyter_core=4.6.3=py36h9f0ad1d_1
   - krb5=1.18.2=h173b8e3_0
   - lcms2=2.11=h396b838_0
   - ld_impl_linux-64=2.33.1=h53a641e_7
@@ -39,6 +57,7 @@ dependencies:
   - libgcc-ng=9.1.0=hdf63c60_0
   - libgfortran-ng=7.3.0=hdf63c60_0
   - libpng=1.6.37=hbc83047_0
+  - libsodium=1.0.17=h516909a_0
   - libssh2=1.9.0=h1ba5d50_1
   - libstdcxx-ng=9.1.0=hdf63c60_0
   - libtiff=4.1.0=h2733197_1
@@ -46,14 +65,18 @@ dependencies:
   - lz4-c=1.9.2=he6710b0_0
   - lzo=2.10=h7b6447c_2
   - markupsafe=1.1.1=py36h7b6447c_0
+  - mistune=0.8.4=py36h8c4c3a4_1001
   - mkl=2020.1=217
   - mkl-service=2.3.0=py36he904b0f_0
   - mkl_fft=1.1.0=py36h23d657b_0
   - mkl_random=1.1.1=py36h0573a6f_0
   - mock=4.0.2=py_0
   - msgpack-python=1.0.0=py36hfd86e86_1
+  - nbconvert=5.6.1=py36h9f0ad1d_1
+  - nbformat=5.0.7=py_0
   - ncurses=6.2=he6710b0_1
   - ninja=1.9.0=py36hfd86e86_0
+  - notebook=6.0.3=py36h9f0ad1d_1
   - numexpr=2.7.1=py36h423224d_0
   - numpy=1.18.5=py36ha1c710e_0
   - numpy-base=1.18.5=py36hde5b4d6_0
@@ -61,81 +84,182 @@ dependencies:
   - openssl=1.1.1g=h7b6447c_0
   - packaging=20.4=py_0
   - pandas=1.0.5=py36h0573a6f_0
+  - pandoc=2.10=0
+  - pandocfilters=1.4.2=py_1
+  - parso=0.7.0=pyh9f0ad1d_0
   - partd=1.1.0=py_0
+  - pexpect=4.8.0=py36h9f0ad1d_1
+  - pickleshare=0.7.5=py36h9f0ad1d_1001
   - pillow=7.2.0=py36hb39fc2d_0
   - pip=20.1.1=py36_1
+  - prometheus_client=0.8.0=pyh9f0ad1d_0
+  - prompt-toolkit=3.0.5=py_1
   - psutil=5.7.0=py36h7b6447c_0
+  - ptyprocess=0.6.0=py_1001
   - pybedtools=0.8.1=py36he513fc3_0
   - pybigwig=0.3.17=py36hc013797_0
   - pycparser=2.20=py_0
+  - pygments=2.6.1=py_0
   - pyparsing=2.4.7=py_0
+  - pyrsistent=0.16.0=py36h8c4c3a4_0
   - pysam=0.15.3=py36hda2845c_1
   - pytables=3.6.1=py36h71ec239_0
   - python=3.6.10=h7579374_2
   - python-dateutil=2.8.1=py_0
+  - python_abi=3.6=1_cp36m
   - pytorch=1.3.1=py3.6_cpu_0
   - pytz=2020.1=py_0
   - pyyaml=5.3.1=py36h7b6447c_1
+  - pyzmq=19.0.1=py36h9947dbf_0
   - readline=8.0=h7b6447c_0
+  - send2trash=1.5.0=py_0
   - setuptools=47.3.1=py36_0
   - six=1.15.0=py_0
   - snappy=1.1.8=he6710b0_0
   - sortedcontainers=2.2.2=py_0
   - sqlite=3.32.3=h62c20be_0
   - tblib=1.6.0=py_0
+  - terminado=0.8.3=py36h9f0ad1d_1
+  - testpath=0.4.4=py_0
   - tk=8.6.10=hbc83047_0
   - toolz=0.10.0=py_0
   - torchvision=0.4.2=py36_cpu
   - tornado=6.0.4=py36h7b6447c_1
+  - traitlets=4.3.3=py36h9f0ad1d_1
   - typing_extensions=3.7.4.2=py_0
+  - wcwidth=0.2.5=pyh9f0ad1d_0
+  - webencodings=0.5.1=py_1
   - wheel=0.34.2=py36_0
+  - widgetsnbextension=3.5.1=py36_0
   - xz=5.2.5=h7b6447c_0
   - yaml=0.2.5=h7b6447c_0
+  - zeromq=4.3.2=he1b5a44_2
   - zict=2.0.0=py_0
+  - zipp=3.1.0=py_0
   - zlib=1.2.11=h7b6447c_3
   - zstd=1.4.4=h0b5b093_3
   - pip:
     - absl-py==0.9.0
+    - ansiwrap==0.8.4
+    - appdirs==1.4.4
+    - argcomplete==1.11.1
+    - argh==0.26.2
+    - arrow==0.15.7
+    - astor==0.8.1
     - astunparse==1.6.3
+    - async-generator==1.10
+    - attr==0.3.1
+    - binaryornot==0.4.4
+    - black==19.10b0
+    - bpnet==0.0.23
     - cachetools==4.1.1
     - chardet==3.0.4
+    - colorlog==4.1.0
+    - concise==0.6.9
+    - configargparse==1.2.3
+    - configparser==5.0.0
+    - cookiecutter==1.7.2
     - cycler==0.10.0
-    - decorator==4.4.2
+    - datrie==0.8.2
     - deepexplain==0.1
-    - gast==0.3.3
+    - deprecation==2.1.0
+    - descartes==1.1.0
+    - docker-pycreds==0.4.0
+    - docutils==0.16
+    - future==0.18.2
+    - gast==0.2.2
+    - gffutils==0.10.1
+    - gin-config==0.3.0
+    - gitdb==4.0.5
+    - gitpython==3.1.5
     - google-auth==1.18.0
     - google-auth-oauthlib==0.4.1
     - google-pasta==0.2.0
+    - gql==0.2.0
+    - graphql-core==1.1
     - grpcio==1.30.0
+    - gtfparse==1.2.0
     - h5py==2.10.0
     - idna==2.10
     - imageio==2.9.0
-    - importlib-metadata==1.7.0
+    - jinja2-time==0.2.0
+    - joblib==0.16.0
+    - jupyter-client==6.1.6
+    - keras==2.2.4
+    - keras-applications==1.0.8
     - keras-preprocessing==1.1.2
+    - kipoi==0.6.29
+    - kipoi-conda==0.2.2
+    - kipoi-utils==0.3.8
+    - kipoiseq==0.4.1
     - kiwisolver==1.2.0
+    - leidenalg==0.8.1
     - markdown==3.2.2
     - matplotlib==3.2.2
+    - mizani==0.7.1
+    - modisco==0.5.7.1
+    - nbclient==0.4.1
+    - nest-asyncio==1.3.3
     - networkx==2.4
+    - nvidia-ml-py3==7.352.0
     - oauthlib==3.1.0
     - opt-einsum==3.2.1
+    - palettable==3.3.0
+    - papermill==2.1.2
+    - pathspec==0.8.0
+    - pathtools==0.1.2
+    - patsy==0.5.1
+    - plotnine==0.7.0
+    - poyo==0.5.0
+    - pprint==0.1
+    - promise==2.3
     - protobuf==3.12.2
     - pyasn1==0.4.8
     - pyasn1-modules==0.2.8
+    - pyfaidx==0.5.9
+    - python-igraph==0.8.2
+    - python-slugify==4.0.1
     - pywavelets==1.1.1
+    - ratelimiter==1.2.0.post0
+    - regex==2020.6.8
+    - related==0.7.2
     - requests==2.24.0
     - requests-oauthlib==1.3.0
     - rsa==4.6
     - scikit-image==0.17.2
+    - scikit-learn==0.23.1
     - scipy==1.4.1
-    - tensorboard==2.2.2
+    - seaborn==0.10.1
+    - sentry-sdk==0.16.1
+    - shapely==1.7.0
+    - shortuuid==1.0.1
+    - simdna==0.4.3.2
+    - simplejson==3.17.0
+    - smmap==3.0.4
+    - snakemake==5.20.1
+    - statsmodels==0.11.1
+    - subprocess32==3.5.4
+    - tenacity==6.2.0
+    - tensorboard==1.15.0
     - tensorboard-plugin-wit==1.7.0
-    - tensorflow==2.2.0
-    - tensorflow-estimator==2.2.0
+    - tensorflow==1.15.3
+    - tensorflow-estimator==1.15.1
     - termcolor==1.1.0
+    - text-unidecode==1.3
+    - texttable==1.6.2
+    - textwrap3==0.9.2
+    - threadpoolctl==2.1.0
     - tifffile==2020.7.4
+    - tinydb==4.1.1
+    - toml==0.10.1
+    - toposort==1.5
+    - tqdm==4.48.2
+    - typed-ast==1.4.1
     - urllib3==1.25.9
+    - vdom==0.6
+    - wandb==0.9.3
+    - watchdog==0.10.3
     - werkzeug==1.0.1
     - wrapt==1.12.1
-    - zipp==3.1.0
 prefix: /home/stephenmalina/anaconda3/envs/deepmr
 
