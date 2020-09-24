@@ -14,13 +14,6 @@ from pyx.one_hot import one_hot
 
 def add_args(parser):
     parser.add_argument(
-        "-n",
-        "--n_sequences",
-        type=int,
-        help="Number of sequences to simulate",
-        default=1000,
-    )
-    parser.add_argument(
         "-l",
         "--sequence_length",
         type=int,
@@ -59,15 +52,50 @@ def add_args(parser):
 
     return parser
 
-
-def simulate_counts(sequences, exposure_pwm, outcome_pwm, alpha=1, beta=1):
+def ddg_pwm_score(one_hot_sequences, pwm, mu=0):
     """
-    Assign each sequence a "count" for exposure / outcome TFs based on the simulated causal relationship.
+    Score one-hot encoded sequences using a PWM.
+
+    The algorithm used closely follows the one Zhao & Stormo describe here:
+        https://static-content.springer.com/esm/art%3A10.1038%2Fnbt.1893/MediaObjects/41587_2011_BFnbt1893_MOESM84_ESM.pdf
+
+    Briefly, we:
+    1. Convert the PWM to a negative log-likelihood ratio relative to the
+       background frequency.
+    2. Convolve it over each one-hot encoded sequence (along the base axis).
+    3. "Invert" the scores back to non-log space via a quasi-sigmoid.
+
+    Regarding 3, what we're doing is only a quasi-sigmoid because technically
+    we're not applying to a true logit (log-odds ratio), just a ratio of two
+    two probabilities that wouldn't sum to 1. This is because Zhao & Stormo
+    are treating the NLL ratio as an energy rather than a true likelihood ratio.
+    """
+    assert ((pwm > 0) & (pwm < 1)).all()
+    background_pwm = np.array([background_frequency[nt] for nt in "ACTG"])
+    nll_pwm = -np.log(pwm / background_pwm)
+    nll_scores = convolve_1d(one_hot_sequences, nll_pwm.T)
+    # Convert back to probability space
+    return 1 / (1 + np.exp(nll_scores - mu))
+
+
+def simulate_counts(sequences, exposure_pwm, outcome_pwm):
+    """
+    Assign each sequence a "count" for exposure / outcome TFs by summing the PWM scores for each.
 
     In more detail, to compute counts we take the following steps:
     1. Compute each PWM to a negative log-likelihood ratio relative to the background frequency.
     2. Slide the two PWMs over each sequence and sum the scores over the length of the sequence
        (result: q_{t, exp}, q_{t, out}).
+    """
+
+    one_hot_sequences = np.array([one_hot(sequence) for sequence in sequences])
+    # Convert to negative log-likelihood ratio for numerical stability.
+    q_exp = np.sum(ddg_pwm_score(one_hot_sequences, exposure_pwm), axis=-1)
+    q_out = np.sum(ddg_pwm_score(one_hot_sequences, outcome_pwm), axis=-1)
+    return q_exp, q_out
+
+def simulate_oracle(sequences, ):
+    """
     3. Compute exposure and outcome counts as follows:
         c_{t, exp} = alpha * q_{t, exp}
         c_{t, out} = beta * (q_{t, exp} * q_{t, out}).
@@ -75,14 +103,7 @@ def simulate_counts(sequences, exposure_pwm, outcome_pwm, alpha=1, beta=1):
        of the PWM score and some scalar and the output be a multiplicative function of the exposure
        and outcome scores and some scalar.
     """
-
-    background_pwm = np.array([background_frequency[nt] for nt in "ACTG"])
-    exposure_nll_pwm = -np.log(exposure_pwm / background_pwm)
-    outcome_nll_pwm = -np.log(outcome_pwm / background_pwm)
-    one_hot_sequences = np.array([one_hot(sequence) for sequence in sequences])
-    q_exp = np.sum(convolve_1d(one_hot_sequences, exposure_nll_pwm.T), axis=-1)
-    q_out = np.sum(convolve_1d(one_hot_sequences, outcome_nll_pwm.T), axis=-1)
-    return q_exp * alpha, q_out * q_exp * beta
+    pass
 
 
 background_frequency = OrderedDict([("A", 0.27), ("C", 0.23), ("G", 0.23), ("T", 0.27)])
@@ -146,46 +167,44 @@ def main(args):
     )
     test_sequences = synthetic.GenerateSequenceNTimes(sequence_sim, args.test_sequences)
 
-    # (Optional:) Save raw sequences to labeled files for checking
-    if args.save_raw_sequences:
-
-        def assign_labels(self, generated_sequence):
-            has_exposure_motif = generated_sequence.additionalInfo.isInTrace(
-                args.exposure_motif
-            )
-            has_outcome_motif = generated_sequence.additionalInfo.isInTrace(
-                args.outcome_motif
-            )
-            has_both_motifs = has_exposure_motif and has_exposure_motif
-            return [
-                int(has_exposure_motif),
-                int(has_outcome_motif),
-                int(has_both_motifs),
-            ]
-
-        label_names = ["has_exposure", "has_outcome", "has_both"]
-        synthetic.printSequences(
-            "train_sequences.simdata",
-            train_sequences,
-            includeFasta=True,
-            includeEmbeddings=True,
-            labelGenerator=synthetic.LabelGenerator(
-                labelNames=label_names,
-                labelsFromGeneratedSequenceFunction=assign_labels,
-            ),
-            prefix="train",
+    # Save raw sequences to labeled files
+    def assign_labels(self, generated_sequence):
+        has_exposure_motif = generated_sequence.additionalInfo.isInTrace(
+            args.exposure_motif
         )
-        synthetic.printSequences(
-            "test_sequences.simdata",
-            test_sequences,
-            includeFasta=True,
-            includeEmbeddings=True,
-            labelGenerator=synthetic.LabelGenerator(
-                labelNames=label_names,
-                labelsFromGeneratedSequenceFunction=assign_labels,
-            ),
-            prefix="test",
+        has_outcome_motif = generated_sequence.additionalInfo.isInTrace(
+            args.outcome_motif
         )
+        has_both_motifs = has_exposure_motif and has_exposure_motif
+        return [
+            int(has_exposure_motif),
+            int(has_outcome_motif),
+            int(has_both_motifs),
+        ]
+
+    label_names = ["has_exposure", "has_outcome", "has_both"]
+    synthetic.printSequences(
+        "train_sequences.simdata",
+        train_sequences,
+        includeFasta=True,
+        includeEmbeddings=True,
+        labelGenerator=synthetic.LabelGenerator(
+            labelNames=label_names,
+            labelsFromGeneratedSequenceFunction=assign_labels,
+        ),
+        prefix="train",
+    )
+    synthetic.printSequences(
+        "test_sequences.simdata",
+        test_sequences,
+        includeFasta=True,
+        includeEmbeddings=True,
+        labelGenerator=synthetic.LabelGenerator(
+            labelNames=label_names,
+            labelsFromGeneratedSequenceFunction=assign_labels,
+        ),
+        prefix="test",
+    )
 
 
     # Fetch training & test data

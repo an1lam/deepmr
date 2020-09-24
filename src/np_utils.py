@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def abs_max(x, axis): 
     x_max, x_min = np.max(x, axis=axis), np.min(x, axis=axis)
     return np.where(-x_min > x_max, x_min, x_max)
@@ -25,6 +26,7 @@ def rolling_window(a, window):
 
     # Create a new view with duplicated overlapping `window`-sized chunks
     return np.lib.stride_tricks.as_strided(a, shape=shape, strides=strides)
+
 
 def convolve_1d(a, kernel):
     """
