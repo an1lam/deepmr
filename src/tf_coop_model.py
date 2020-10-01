@@ -207,8 +207,12 @@ class CountsRegressor(nn.Module):
 
 
 def run_one_epoch(
-    model, dataloader, optimizer: torch.optim.Optimizer, training=True, device=None,
-    metrics_config={}
+    model,
+    dataloader,
+    optimizer: torch.optim.Optimizer,
+    training=True,
+    device=None,
+    metrics_config={},
 ):
     torch.set_grad_enabled(training)
     model.train() if training else model.eval()
@@ -254,11 +258,17 @@ def train_model(
     best_avg_val_loss = np.inf
     for epoch in range(epochs):
         train_predictions, train_losses, train_metrics = run_one_epoch(
-            model, train_data_loader, optimizer, training=True,
+            model,
+            train_data_loader,
+            optimizer,
+            training=True,
             metrics_config=metrics_config,
         )
         val_predictions, val_losses, val_metrics = run_one_epoch(
-            model, val_data_loader, optimizer, training=False,
+            model,
+            val_data_loader,
+            optimizer,
+            training=False,
             metrics_config=metrics_config,
         )
         avg_val_loss = np.mean(val_losses)
@@ -329,11 +339,23 @@ def pearson_r(x, y):
         return stats.pearsonr(x, y)[0]
 
 
+def anscombe_transform(y):
+    return 2 * np.sqrt(y + 3.0 / 8)
+
+
+def inverse_anscombe_transform(vals):
+    return np.square(y / 2.0) - 3.0 / 8
+
+
 def train(args):
     # Load training data, one-hot encode it, & split it into actual train and validation data
     train_df = pd.read_csv(os.path.join(args.data_dir, args.train_data_fname))
     train_dataset = IterablePandasDataset(
-        train_df, x_cols=args.sequences_col, y_cols=args.label_cols, x_transform=one_hot
+        train_df,
+        x_cols=args.sequences_col,
+        y_cols=args.label_cols,
+        x_transform=one_hot,
+        y_transform=anscombe_transform,
     )
     n_train = len(train_dataset)
     n_val = int(n_train * args.val_percentage)
@@ -362,7 +384,7 @@ def train(args):
         metrics_config={
             "spearman-rho": spearman_rho,
             "pearson-r": pearson_r,
-        }
+        },
     )
 
     # Save the model to a file

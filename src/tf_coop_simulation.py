@@ -111,7 +111,9 @@ def simulate_oracle_predictions(
     sequences, exposure_pwm, outcome_pwm, alpha=10, beta=10
 ):
     """
-    3. Compute exposure and outcome counts as follows:
+    Simulate oracle predictions given counts from a simulated assay.
+
+    Compute exposure and outcome counts as follows:
         c_{t, exp} = alpha * q_{t, exp}
         c_{t, out} = beta * (q_{t, exp} * q_{t, out}).
        The design of these formulas is driven by the goal of having the exposure be a linear function
@@ -166,7 +168,7 @@ def main(args):
     ]
     # Want a 4-way split between neither motif, motif 1, motif 2, and both motifs.
     # In order to achieve this, we construct two embedders, one for each motif.
-    # Each embedder should include its underlying with probability 1/2.
+    # Each embedder should include its underlying motif with probability 1/2.
     # By basically probability rules, the probability of two fair independent binary
     # random variables both equaling 1 or 0 equals 1/4.
     pwm_or_nothing_embedders = [
