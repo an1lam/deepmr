@@ -3,8 +3,10 @@ Simulate transcription factor binding cooperativity data.
 """
 import argparse
 from collections import OrderedDict
+import os
 
 import numpy as np
+import pandas as pd
 import simdna
 from simdna import synthetic
 
@@ -44,13 +46,23 @@ def add_args(parser):
     )
 
     parser.add_argument(
-        "-s",
-        "--save_raw_sequences",
-        action="store_true",
-        help="Whether to save the sequences strings as-is after generating them",
+        "--data_dir",
+        default="../dat/sim/",
+        help="Path to directory from/to which to read/write data"
+    )
+    parser.add_argument(
+        "--train_data_fname",
+        default="train_labels.csv",
+        help="Name of the file to which training sequences and labels will be saved",
+    )
+    parser.add_argument(
+        "--test_data_fname",
+        default="test_labels.csv",
+        help="Name of the file to which test sequences and labels will be saved",
     )
 
     return parser
+
 
 def ddg_pwm_score(one_hot_sequences, pwm, mu=0):
     """
@@ -65,9 +77,9 @@ def ddg_pwm_score(one_hot_sequences, pwm, mu=0):
     2. Convolve it over each one-hot encoded sequence (along the base axis).
     3. "Invert" the scores back to non-log space via a quasi-sigmoid.
 
-    Regarding 3, what we're doing is only a quasi-sigmoid because technically
-    we're not applying to a true logit (log-odds ratio), just a ratio of two
-    two probabilities that wouldn't sum to 1. This is because Zhao & Stormo
+    Regarding 3, what we"re doing is only a quasi-sigmoid because technically
+    we"re not applying to a true logit (log-odds ratio), just a ratio of two
+    two probabilities that wouldn"t sum to 1. This is because Zhao & Stormo
     are treating the NLL ratio as an energy rather than a true likelihood ratio.
     """
     assert ((pwm > 0) & (pwm < 1)).all()
@@ -94,7 +106,10 @@ def simulate_counts(sequences, exposure_pwm, outcome_pwm):
     q_out = np.sum(ddg_pwm_score(one_hot_sequences, outcome_pwm), axis=-1)
     return q_exp, q_out
 
-def simulate_oracle(sequences, ):
+
+def simulate_oracle_predictions(
+    sequences, exposure_pwm, outcome_pwm, alpha=10, beta=10
+):
     """
     3. Compute exposure and outcome counts as follows:
         c_{t, exp} = alpha * q_{t, exp}
@@ -103,13 +118,21 @@ def simulate_oracle(sequences, ):
        of the PWM score and some scalar and the output be a multiplicative function of the exposure
        and outcome scores and some scalar.
     """
-    pass
+    q_exp, q_out = simulate_counts(sequences, exposure_pwm, outcome_pwm)
+    c_exp = alpha * q_exp
+    c_out = beta * (q_exp * q_out)
+
+    c_exp_noisy = np.random.poisson(c_exp, len(c_exp))
+    c_out_noisy = np.random.poisson(c_out, len(c_out))
+    return c_exp_noisy, c_out_noisy
 
 
 background_frequency = OrderedDict([("A", 0.27), ("C", 0.23), ("G", 0.23), ("T", 0.27)])
 
 
 def main(args):
+    os.makedirs(args.data_dir, exist_ok=True)
+
     # Setup generator for background nucleotide distribution
     background_generator = synthetic.ZeroOrderBackgroundGenerator(
         seqLength=args.sequence_length,
@@ -121,7 +144,7 @@ def main(args):
         simdna.ENCODE_MOTIFS_PATH, pseudocountProb=0.001
     )
 
-    # Set up embedders for the two motif's PWMs
+    # Set up embedders for the two motif"s PWMs
     position_generator = synthetic.UniformPositionGenerator()
     pwm_samplers = [
         (
@@ -184,7 +207,7 @@ def main(args):
 
     label_names = ["has_exposure", "has_outcome", "has_both"]
     synthetic.printSequences(
-        "train_sequences.simdata",
+        os.path.join(args.data_dir, "train_sequences.simdata"),
         train_sequences,
         includeFasta=True,
         includeEmbeddings=True,
@@ -195,7 +218,7 @@ def main(args):
         prefix="train",
     )
     synthetic.printSequences(
-        "test_sequences.simdata",
+        os.path.join(args.data_dir, "test_sequences.simdata"),
         test_sequences,
         includeFasta=True,
         includeEmbeddings=True,
@@ -206,19 +229,48 @@ def main(args):
         prefix="test",
     )
 
-
     # Fetch training & test data
-    train_sim_data = synthetic.read_simdata_file("train_sequences.simdata")
-    test_sim_data = synthetic.read_simdata_file("test_sequences.simdata")
+    train_sim_data = synthetic.read_simdata_file(
+        os.path.join(args.data_dir, "train_sequences.simdata")
+    )
+    test_sim_data = synthetic.read_simdata_file(
+        os.path.join(args.data_dir, "test_sequences.simdata")
+    )
     train_sequences = train_sim_data.sequences
     test_sequences = test_sim_data.sequences
 
     # Generate count labels for labels
     exposure_pwm = motifs.loadedMotifs[args.exposure_motif].getRows()
     outcome_pwm = motifs.loadedMotifs[args.outcome_motif].getRows()
-    train_counts = simulate_counts(train_sequences, exposure_pwm, outcome_pwm)
-    test_counts = simulate_counts(train_sequences, exposure_pwm, outcome_pwm)
-    print(train_counts)
+    train_counts = simulate_oracle_predictions(
+        train_sequences, exposure_pwm, outcome_pwm
+    )
+    test_counts = simulate_oracle_predictions(
+        test_sequences, exposure_pwm, outcome_pwm
+    )
+
+    train_df = pd.DataFrame(
+        {
+            "sequences": train_sequences,
+            "labels_exp": train_counts[0],
+            "labels_out": train_counts[1],
+        }
+    )
+    test_df = pd.DataFrame(
+        {
+            "sequences": test_sequences,
+            "labels_exp": test_counts[0],
+            "labels_out": test_counts[1],
+        }
+    )
+
+    # Save labeled data to file to be used for model training and predictions
+    train_df.to_csv(
+        os.path.join(args.data_dir, args.train_data_fname), header=True, index=False
+    )
+    test_df.to_csv(
+        os.path.join(args.data_dir, args.test_data_fname), header=True, index=False
+    )
 
 
 if __name__ == "__main__":
