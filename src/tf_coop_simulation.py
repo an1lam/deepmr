@@ -200,7 +200,7 @@ def main(args):
         has_outcome_motif = generated_sequence.additionalInfo.isInTrace(
             args.outcome_motif
         )
-        has_both_motifs = has_exposure_motif and has_exposure_motif
+        has_both_motifs = has_exposure_motif and has_outcome_motif
         return [
             int(has_exposure_motif),
             int(has_outcome_motif),

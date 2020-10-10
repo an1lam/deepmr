@@ -301,3 +301,5 @@ fig/
 
 # Logs
 src/wandb
+
+*.hf5

@@ -73,6 +73,11 @@ def add_args(parser):
         default=10,
         help="Number of iterations to repeat full dataset optimization for",
     )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        help="Random seed value to override the default with."
+    )
 
     # Data
     parser.add_argument(
@@ -115,9 +120,11 @@ class IterablePandasDataset(torch.utils.data.IterableDataset):
     One-hot encodes and returns DNA sequences and their corresponding counts.
     """
 
-    def __init__(self, df, x_cols, y_cols, x_transform=None, y_transform=None):
+    def __init__(self, df, x_cols, y_cols=None, x_transform=None, y_transform=None):
         self.x = df[x_cols].values
-        self.y = df[y_cols].values
+        self.y = None
+        if y_cols is not None:
+            self.y = df[y_cols].values
         self.x_transform = x_transform
         self.y_transform = y_transform
         self.n = len(self.x)
@@ -125,6 +132,9 @@ class IterablePandasDataset(torch.utils.data.IterableDataset):
     def __iter__(self) -> Tuple[np.ndarray, np.ndarray]:
         for i in range(self.n):
             x = self.x[i]
+            if self.y is None:
+                return x, None
+
             y = self.y[i]
             if self.x_transform is not None:
                 x = self.x_transform(x)
@@ -192,13 +202,13 @@ class CountsRegressor(nn.Module):
         self.regressor = nn.Linear(dense_layer_width, n_outputs)
 
     def forward(self, sequences, targets=None) -> dict:
-        targets = targets.float()
         conv_output = self.conv_layers(sequences)
         dense_output = self.dense_layers(conv_output)
         predictions = self.regressor(dense_output)
 
         outputs = {"predictions": predictions}
         if targets is not None:
+            targets = targets.float()
             loss_function = nn.MSELoss()
             loss = loss_function(predictions, targets)
             outputs["loss"] = loss
@@ -348,6 +358,10 @@ def inverse_anscombe_transform(vals):
 
 
 def train(args):
+    if args.seed is not None:
+        np.random.seed(seed=args.seed)
+        torch.manual_seed(args.seed)
+
     # Load training data, one-hot encode it, & split it into actual train and validation data
     train_df = pd.read_csv(os.path.join(args.data_dir, args.train_data_fname))
     train_dataset = IterablePandasDataset(
