@@ -16,6 +16,10 @@ from pyx.one_hot import one_hot
 
 def add_args(parser):
     parser.add_argument(
+        "--seed",
+        type=int
+    )
+    parser.add_argument(
         "-l",
         "--sequence_length",
         type=int,
@@ -108,7 +112,7 @@ def simulate_counts(sequences, exposure_pwm, outcome_pwm):
 
 
 def simulate_oracle_predictions(
-    sequences, exposure_pwm, outcome_pwm, alpha=10, beta=10
+    sequences, exposure_pwm, outcome_pwm, alpha=100, beta=100
 ):
     """
     Simulate oracle predictions given counts from a simulated assay.
@@ -134,6 +138,8 @@ background_frequency = OrderedDict([("A", 0.27), ("C", 0.23), ("G", 0.23), ("T",
 
 def main(args):
     os.makedirs(args.data_dir, exist_ok=True)
+    if args.seed is not None:
+        np.random.seed(seed=args.seed)
 
     # Setup generator for background nucleotide distribution
     background_generator = synthetic.ZeroOrderBackgroundGenerator(
