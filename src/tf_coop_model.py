@@ -8,6 +8,7 @@ from typing import Union
 import numpy as np
 import pandas as pd
 from scipy import stats
+from sklearn import metrics
 import torch
 from torch import nn
 
@@ -83,12 +84,12 @@ def add_args(parser):
     parser.add_argument(
         "--data_dir",
         default="../dat/sim/",
-        help="Path to directory from/to which to read/write data",
+        help="Path to directory from/to which to read/write data.",
     )
     parser.add_argument(
         "--train_data_fname",
         default="train_labels.csv",
-        help="Name of the file to which training sequences and labels will be saved",
+        help="Name of the file from which training sequences and labels will be loaded.",
     )
     parser.add_argument(
         "--sequences_col",
@@ -335,6 +336,16 @@ def spearman_rho(x, y):
         return stats.spearmanr(x, y)[0]
 
 
+def rsquared(x, y):
+    if type(x) is list:
+        x = np.array(x)
+    if type(y) is list:
+        y = np.array(y)
+    assert x.shape == y.shape
+    assert len(x.shape) <= 2
+
+    return metrics.r2_score(x, y, multioutput='raw_values')
+
 def pearson_r(x, y):
     if type(x) is list:
         x = np.array(x)
@@ -347,7 +358,6 @@ def pearson_r(x, y):
         return [stats.pearsonr(x[:, i], y[:, i])[0] for i in range(x.shape[1])]
     else:
         return stats.pearsonr(x, y)[0]
-
 
 def anscombe_transform(y):
     return 2 * np.sqrt(y + 3.0 / 8)
@@ -397,17 +407,16 @@ def train(args):
         epochs=args.epochs,
         metrics_config={
             "spearman-rho": spearman_rho,
-            "pearson-r": pearson_r,
+            "r-squared": rsquared,
         },
     )
 
     # Save the model to a file
     torch.save(model.state_dict(), os.path.join(args.data_dir, args.model_fname))
 
-
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser = add_args(parser)
     args = parser.parse_args()
     train(args)

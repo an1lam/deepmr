@@ -34,6 +34,23 @@ class TestPwmScore(unittest.TestCase):
         #   https://www.wolframalpha.com/input/?i=1%2F%281%2Bexp%28-+log%28.97+%2F+.27%29+*+5%29%29
         np.testing.assert_allclose(scores, 0.9983, rtol=0.001)
 
+    def test_single_mutation_impact(self):
+        pwm = np.array([0.997, 0.001, 0.001, 0.001])[:, None]
+        pwm = np.repeat(pwm, 5, axis=1).T
+        sequences = np.zeros((1, 4, 10))
+        sequences[0, 0, :] = 1  # All As
+
+        ref_scores = ddg_pwm_score(sequences, pwm)
+        mutants = sequences.copy()
+        # First A -> C so only impacts PWM application #1
+        mutants[0, 0, 0] = 0
+        mutants[0, 1, 0] = 1
+        mut_scores = ddg_pwm_score(mutants, pwm)
+        # Computed manually using Wolfram Alpha as a sanity check:
+        #
+        #   https://bit.ly/313OREG
+        np.testing.assert_almost_equal(np.sum(ref_scores - mut_scores), .5515367)
+
     def test_perfect_confidence_not_allowed(self):
         pwm = np.array([1.0, 0.0, 0.0, 0.0])[:, None]
         pwm = np.repeat(pwm, 5, axis=1).T

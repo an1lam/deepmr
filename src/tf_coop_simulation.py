@@ -3,6 +3,7 @@ Simulate transcription factor binding cooperativity data.
 """
 import argparse
 from collections import OrderedDict
+import logging
 import os
 
 import numpy as np
@@ -64,6 +65,11 @@ def add_args(parser):
         default="test_labels.csv",
         help="Name of the file to which test sequences and labels will be saved",
     )
+    parser.add_argument(
+        "--log_summary_stats",
+        action="store_true",
+        help="Whether to log summary statistics about the counts at the end of the simulation."
+    )
 
     return parser
 
@@ -106,13 +112,13 @@ def simulate_counts(sequences, exposure_pwm, outcome_pwm):
 
     one_hot_sequences = np.array([one_hot(sequence) for sequence in sequences])
     # Convert to negative log-likelihood ratio for numerical stability.
-    q_exp = np.sum(ddg_pwm_score(one_hot_sequences, exposure_pwm), axis=-1)
-    q_out = np.sum(ddg_pwm_score(one_hot_sequences, outcome_pwm), axis=-1)
+    q_exp = np.prod(1 - ddg_pwm_score(one_hot_sequences, exposure_pwm), axis=-1)
+    q_out = np.prod(1 - ddg_pwm_score(one_hot_sequences, outcome_pwm), axis=-1)
     return q_exp, q_out
 
 
 def simulate_oracle_predictions(
-    sequences, exposure_pwm, outcome_pwm, alpha=100, beta=100
+    sequences, exposure_pwm, outcome_pwm, alpha=10, beta=10
 ):
     """
     Simulate oracle predictions given counts from a simulated assay.
@@ -120,6 +126,7 @@ def simulate_oracle_predictions(
     Compute exposure and outcome counts as follows:
         c_{t, exp} = alpha * q_{t, exp}
         c_{t, out} = beta * (q_{t, exp} * q_{t, out}).
+
        The design of these formulas is driven by the goal of having the exposure be a linear function
        of the PWM score and some scalar and the output be a multiplicative function of the exposure
        and outcome scores and some scalar.
@@ -149,49 +156,49 @@ def main(args):
 
     # Load motif repository
     motifs = synthetic.LoadedEncodeMotifs(
-        simdna.ENCODE_MOTIFS_PATH, pseudocountProb=0.001
+        simdna.ENCODE_MOTIFS_PATH, pseudocountProb=0.00001
     )
 
     # Set up embedders for the two motif"s PWMs
     position_generator = synthetic.UniformPositionGenerator()
-    pwm_samplers = [
-        (
-            args.exposure_motif,
-            synthetic.PwmSamplerFromLoadedMotifs(motifs, args.exposure_motif),
-        ),
-        (
-            args.outcome_motif,
-            synthetic.PwmSamplerFromLoadedMotifs(motifs, args.outcome_motif),
-        ),
-    ]
-    pwm_embedders = [
-        synthetic.SubstringEmbedder(
-            substringGenerator=sampler,
-            positionGenerator=position_generator,
-            name=name,
-        )
-        for name, sampler in pwm_samplers
-    ]
-    # Want a 4-way split between neither motif, motif 1, motif 2, and both motifs.
-    # In order to achieve this, we construct two embedders, one for each motif.
-    # Each embedder should include its underlying motif with probability 1/2.
-    # By basically probability rules, the probability of two fair independent binary
-    # random variables both equaling 1 or 0 equals 1/4.
-    pwm_or_nothing_embedders = [
-        synthetic.XOREmbedder(
-            embedder1=pwm_embedder,
-            # Use random subset embedder to construct null embedder.
-            embedder2=synthetic.RandomSubsetOfEmbedders(
-                quantityGenerator=synthetic.FixedQuantityGenerator(0), embedders=[]
-            ),
-            probOfFirst=0.5,
-        )
-        for pwm_embedder in pwm_embedders
+    motif_lengths = [
+        len(motifs.getPwm(name).getRows())
+        for name in [args.exposure_motif, args.outcome_motif]
     ]
 
     # Generate sequences
+    spacing_generator = synthetic.UniformIntegerGenerator(
+        max(motif_lengths), args.sequence_length - sum(motif_lengths)
+    )
+    exposure_motif_generator = synthetic.PwmSamplerFromLoadedMotifs(
+        motifs, args.exposure_motif
+    )
+    outcome_motif_generator = synthetic.PwmSamplerFromLoadedMotifs(
+        motifs, args.outcome_motif
+    )
+    embedders = [
+        synthetic.SubstringEmbedder(
+                substringGenerator=exposure_motif_generator,
+                positionGenerator=position_generator,
+                name=args.exposure_motif,
+        ),
+        synthetic.SubstringEmbedder(
+                substringGenerator=outcome_motif_generator,
+                positionGenerator=position_generator,
+                name=args.outcome_motif,
+        ),
+        synthetic.EmbeddableEmbedder(synthetic.PairEmbeddableGenerator(
+            embeddableGenerator1=exposure_motif_generator,
+            embeddableGenerator2=outcome_motif_generator,
+            separationGenerator=spacing_generator
+        ))
+    ]
+    overall_embedder = synthetic.RandomSubsetOfEmbedders(
+        synthetic.BernoulliQuantityGenerator(.75), embedders
+    ) 
     sequence_sim = synthetic.EmbedInABackground(
-        backgroundGenerator=background_generator, embedders=pwm_or_nothing_embedders
+        backgroundGenerator=background_generator, 
+        embedders=[overall_embedder]
     )
     train_sequences = synthetic.GenerateSequenceNTimes(
         sequence_sim, args.train_sequences
@@ -206,7 +213,7 @@ def main(args):
         has_outcome_motif = generated_sequence.additionalInfo.isInTrace(
             args.outcome_motif
         )
-        has_both_motifs = has_exposure_motif and has_outcome_motif
+        has_both_motifs = generated_sequence.additionalInfo.isInTrace("EmbeddableEmbedder")
         return [
             int(has_exposure_motif),
             int(has_outcome_motif),
@@ -272,6 +279,14 @@ def main(args):
         }
     )
 
+    if args.log_summary_stats:
+        logging.info(
+            "Training count summary stats: " +
+            "\n\texposure mean = %.2f, variance = %.2f \n\toutcome mean = %.2f, variance = %.2f"
+            % (train_df.labels_exp.mean(), train_df.labels_exp.var(), 
+               train_df.labels_out.mean(), train_df.labels_out.var())
+        )
+
     # Save labeled data to file to be used for model training and predictions
     train_df.to_csv(
         os.path.join(args.data_dir, args.train_data_fname), header=True, index=False
@@ -282,6 +297,7 @@ def main(args):
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     parser = argparse.ArgumentParser()
     parser = add_args(parser)
     main(parser.parse_args())
