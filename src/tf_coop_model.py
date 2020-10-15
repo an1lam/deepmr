@@ -133,12 +133,12 @@ class IterablePandasDataset(torch.utils.data.IterableDataset):
     def __iter__(self) -> Tuple[np.ndarray, np.ndarray]:
         for i in range(self.n):
             x = self.x[i]
+            if self.x_transform is not None:
+                x = self.x_transform(x)
             if self.y is None:
                 return x, None
 
             y = self.y[i]
-            if self.x_transform is not None:
-                x = self.x_transform(x)
             if self.y_transform is not None:
                 y = self.y_transform(y)
             yield x, y
@@ -149,6 +149,7 @@ class IterablePandasDataset(torch.utils.data.IterableDataset):
         if self.x_transform is not None:
             x = self.x_transform(x)
         if self.y_transform is not None:
+            print("y transform")
             y = self.y_transform(y)
         return x, y
 
@@ -330,21 +331,21 @@ def spearman_rho(x, y):
     assert x.shape == y.shape
     assert len(x.shape) <= 2
 
-    if len(x.shape) > 0:
+    if len(x.shape) > 1:
         return [stats.spearmanr(x[:, i], y[:, i])[0] for i in range(x.shape[1])]
     else:
         return stats.spearmanr(x, y)[0]
 
 
-def rsquared(x, y):
-    if type(x) is list:
-        x = np.array(x)
-    if type(y) is list:
-        y = np.array(y)
-    assert x.shape == y.shape
-    assert len(x.shape) <= 2
+def rsquared(y_true, y_pred):
+    if type(y_true) is list:
+        y_true = np.array(y_true)
+    if type(y_pred) is list:
+        y_pred = np.array(y_pred)
+    assert y_true.shape == y_pred.shape
+    assert len(y_true.shape) <= 2
 
-    return metrics.r2_score(x, y, multioutput='raw_values')
+    return metrics.r2_score(y_true, y_pred, multioutput='raw_values')
 
 def pearson_r(x, y):
     if type(x) is list:
@@ -354,7 +355,7 @@ def pearson_r(x, y):
     assert x.shape == y.shape
     assert len(x.shape) <= 2
 
-    if len(x.shape) > 0:
+    if len(x.shape) > 1:
         return [stats.pearsonr(x[:, i], y[:, i])[0] for i in range(x.shape[1])]
     else:
         return stats.pearsonr(x, y)[0]
