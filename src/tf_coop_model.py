@@ -149,7 +149,6 @@ class IterablePandasDataset(torch.utils.data.IterableDataset):
         if self.x_transform is not None:
             x = self.x_transform(x)
         if self.y_transform is not None:
-            print("y transform")
             y = self.y_transform(y)
         return x, y
 
