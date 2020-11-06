@@ -79,6 +79,12 @@ def add_args(parser):
         type=int,
         help="Random seed value to override the default with."
     )
+    parser.add_argument(
+        "--patience",
+        type=int,
+        default=10,
+        help="Number of epochs to continue training for after validation loss stops decreasing before stopping."
+    )
 
     # Data
     parser.add_argument(
@@ -409,6 +415,7 @@ def train(args):
             "spearman-rho": spearman_rho,
             "r-squared": rsquared,
         },
+        patience=args.patience
     )
 
     # Save the model to a file

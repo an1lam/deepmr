@@ -6,6 +6,7 @@ from collections import OrderedDict
 import logging
 import os
 
+from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
 import simdna
@@ -49,6 +50,12 @@ def add_args(parser):
         default=50000,
         help="Number of sequences to generate for NN test set",
     )
+    parser.add_argument(
+        "--variant_augmentation_percentage",
+        type=float,
+        default=0.0,
+        help="Fraction of train/test sequences to duplicate and mutate."
+    )
 
     parser.add_argument(
         "--data_dir",
@@ -63,6 +70,16 @@ def add_args(parser):
     parser.add_argument(
         "--test_data_fname",
         default="test_labels.csv",
+        help="Name of the file to which test sequences and labels will be saved",
+    )
+    parser.add_argument(
+        "--train_variant_data_fname",
+        default="train_variant_labels.csv",
+        help="Name of the file to which training sequences and labels will be saved",
+    )
+    parser.add_argument(
+        "--test_variant_data_fname",
+        default="test_variant_labels.csv",
         help="Name of the file to which test sequences and labels will be saved",
     )
     parser.add_argument(
@@ -112,13 +129,13 @@ def simulate_counts(sequences, exposure_pwm, outcome_pwm):
 
     one_hot_sequences = np.array([one_hot(sequence) for sequence in sequences])
     # Convert to negative log-likelihood ratio for numerical stability.
-    q_exp = np.prod(1 - ddg_pwm_score(one_hot_sequences, exposure_pwm), axis=-1)
-    q_out = np.prod(1 - ddg_pwm_score(one_hot_sequences, outcome_pwm), axis=-1)
+    q_exp = 1 - np.prod(1 - ddg_pwm_score(one_hot_sequences, exposure_pwm), axis=-1)
+    q_out = 1 - np.prod(1 - ddg_pwm_score(one_hot_sequences, outcome_pwm), axis=-1)
     return q_exp, q_out
 
 
 def simulate_oracle_predictions(
-    sequences, exposure_pwm, outcome_pwm, alpha=10, beta=10
+    sequences, exposure_pwm, outcome_pwm, alpha=100, beta=100, exp_bias=0, out_bias=0,
 ):
     """
     Simulate oracle predictions given counts from a simulated assay.
@@ -132,12 +149,55 @@ def simulate_oracle_predictions(
        and outcome scores and some scalar.
     """
     q_exp, q_out = simulate_counts(sequences, exposure_pwm, outcome_pwm)
-    c_exp = alpha * q_exp
-    c_out = beta * (q_exp * q_out)
+    c_exp = exp_bias + alpha * q_exp
+    c_out = out_bias + beta * (q_exp * q_out)
 
     c_exp_noisy = np.random.poisson(c_exp, len(c_exp))
     c_out_noisy = np.random.poisson(c_out, len(c_out))
-    return c_exp_noisy, c_out_noisy
+    return c_exp_noisy, c_out_noisy, c_exp, c_out, q_exp, q_out
+
+
+nts_to_ints = { 'A':0, 'C':1, 'G':2, 'T':3 } 
+ints_to_nts = {i: nt for nt, i in nts_to_ints.items()} 
+
+
+def mutate_nt(nt):
+     return ints_to_nts[(nts_to_ints[nt] + np.random.choice([1, 2, 3])) % 4]
+
+
+def mutate_sequence(seq, embedding):
+    start_pos = embeddings[0].startPos
+    embedded_seq = embeddings[0].what.string
+    mutation_pos = start_pos + np.random.choice(np.arange(len(embedded_seq)))
+    new_nt = mutate_nt(sequence[mutation_pos])      
+    new_sequence = sequence[:mutation_pos] + new_nt + sequence[mutation_pos+1:]
+    return new_sequence
+
+
+def mutate_sequences(sequences, embeddings, max_mutations_per_variant=1):
+    variants = []
+    for seq, embeddings_ in zip(sequences, embeddings):
+        if len(embeddings_) == 1:
+            variant = mutate_sequence(sequence, embeddings_[0])
+        else:
+            assert len(embeddings_) == 3:
+            variant = mutate_sequence(mutate_sequence(sequence, embeddings_[0]), embeddings_[1])
+        variants.append(variant)
+    return np.array(variants)
+
+def generate_variant_counts_and_labels(
+    sequences, labels, embeddings,
+    exposure_pwm, outcome_pwm,
+    frac=1.0, max_mutations_per_variant=1
+):
+    n_variants = len(sequences) * frac
+    variant_indexes = np.random.choice(np.arange(len(sequences)), size=n_variants)
+    variants = sequences[variant_indexes].copy()
+    variants = mutate_sequences(variants, embeddings, max_mutations_per_variant=max_mutations_per_variant)
+    variant_counts = simulate_oracle_predictions(variants, exposure_pwm, outcome_pwm)
+    variant_labels = labels[variant_indexes].copy()
+    return variants, variant_counts, variant_labels, variant_indexes
+
 
 
 background_frequency = OrderedDict([("A", 0.27), ("C", 0.23), ("G", 0.23), ("T", 0.27)])
@@ -215,8 +275,8 @@ def main(args):
         )
         has_both_motifs = generated_sequence.additionalInfo.isInTrace("EmbeddableEmbedder")
         return [
-            int(has_exposure_motif),
-            int(has_outcome_motif),
+            int(has_exposure_motif or has_both_motifs),
+            int(has_outcome_motif or has_both_motifs),
             int(has_both_motifs),
         ]
 
@@ -253,6 +313,10 @@ def main(args):
     )
     train_sequences = train_sim_data.sequences
     test_sequences = test_sim_data.sequences
+    train_labels = train_sim_data.labels
+    test_labels = test_sim_data.labels
+    train_embeddings = train_sim_data.embeddings
+    test_embeddings = test_sim_data.embeddings
 
     # Generate count labels for labels
     exposure_pwm = motifs.loadedMotifs[args.exposure_motif].getRows()
@@ -264,11 +328,36 @@ def main(args):
         test_sequences, exposure_pwm, outcome_pwm
     )
 
+    if args.log_summary_stats:
+        fig, axs = plt.subplots(2, 1, figsize=(6, 10))
+        axs[0].scatter(train_counts[4], train_counts[2], alpha=.3)
+        axs[0].set_xlabel("$ q_{\\rm{exp}} $")
+        axs[0].set_ylabel("Expected Counts")
+
+        axs[1].scatter(train_counts[5], train_counts[5])
+        axs[1].set_xlabel("$ q_{\\rm{out}} $")
+        axs[1].set_ylabel("Expected Counts")
+        plt.savefig(os.path.join(args.data_dir, "counts_vs_q_plot.png"))
+
+    if args.variant_augmentation_percentage > 0:
+
+        train_variants, train_variant_counts, train
+
+        train_sequences = np.concatenate((train_sequences, train_variants))
+        test_sequences = np.concatenate((test_sequences, test_variants))
+        train_counts = np.concatenate((train_counts, train_variant_counts))
+        test_counts = np.concatenate((test_counts, test_variant_counts))
+        train_labels = np.concatenate((train_labels, train_labels[train_variant_indexes].copy()))
+        test_labels = np.concatenate((test_labels, test_labels[test_variant_indexes].copy()))
+
     train_df = pd.DataFrame(
         {
             "sequences": train_sequences,
             "labels_exp": train_counts[0],
             "labels_out": train_counts[1],
+            "has_exposure": train_labels[:, 0],
+            "has_outcome": train_labels[:, 1],
+            "has_both": train_labels[:, 2],
         }
     )
     test_df = pd.DataFrame(
@@ -276,6 +365,9 @@ def main(args):
             "sequences": test_sequences,
             "labels_exp": test_counts[0],
             "labels_out": test_counts[1],
+            "has_exposure": test_labels[:, 0],
+            "has_outcome": test_labels[:, 1],
+            "has_both": test_labels[:, 2],
         }
     )
 
