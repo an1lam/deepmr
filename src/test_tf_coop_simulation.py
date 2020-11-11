@@ -1,9 +1,16 @@
 import unittest
+from unittest.mock import MagicMock
 
+import editdistance
 import numpy as np
+import simdna
+from simdna import synthetic
 
 from tf_coop_simulation import background_frequency
 from tf_coop_simulation import ddg_pwm_score
+from tf_coop_simulation import generate_variant_counts_and_labels
+from tf_coop_simulation import simulate_counts
+
 
 
 class TestPwmScore(unittest.TestCase):
@@ -59,6 +66,55 @@ class TestPwmScore(unittest.TestCase):
 
         with self.assertRaises(AssertionError):
             ddg_pwm_score(sequences, pwm)
+
+
+
+class TestSimulateCounts(unittest.TestCase):
+    def test_background_sequence(self):
+        pwm = np.array([background_frequency[nt] for nt in "ACTG"])[:, None]
+        pwm = np.repeat(pwm, 5, axis=1).T
+        sequences = ["A" * 100]
+
+        q_exp, q_out = simulate_counts(sequences, pwm, pwm)
+
+        # Probability at any position is .5 so almost guaranteed across 100 positions
+        np.testing.assert_almost_equal(q_exp, 1.)
+        np.testing.assert_almost_equal(q_out, 1.)
+
+    def test_perfectly_matching_and_nonmatching_sequence(self):
+        pwm_exp = np.array([0.97, 0.01, 0.01, 0.01])[:, None]
+        pwm_exp = np.repeat(pwm_exp, 5, axis=1).T
+        pwm_out = np.array([0.001, 0.997, 0.001, 0.001])[:, None]
+        pwm_out = np.repeat(pwm_out, 5, axis=1).T
+        sequences = ["A" * 100]
+        q_exp, q_out = simulate_counts(sequences, pwm_exp, pwm_out)
+
+        # See PWM test above for Wolfram Alpha score computation link
+        np.testing.assert_almost_equal(q_exp, 1.0)
+        np.testing.assert_almost_equal(q_out, 0)
+
+
+class TestGenerateVariantCountsAndLabels(unittest.TestCase):
+    def test_make_single_mutation_variants(self):
+        sim_data = synthetic.read_simdata_file("sample_sequences.simdata")
+        motifs = synthetic.LoadedEncodeMotifs(
+            simdna.ENCODE_MOTIFS_PATH, pseudocountProb=0.00001
+        )
+        exposure_pwm = motifs.loadedMotifs["GATA_disc1"].getRows()
+        outcome_pwm = motifs.loadedMotifs["TAL1_known1"].getRows()
+
+        variants, variant_counts, variant_labels, variant_indexes = generate_variant_counts_and_labels(
+            sim_data.sequences,
+            sim_data.labels,
+            sim_data.embeddings,
+            exposure_pwm,
+            outcome_pwm,
+            frac=.5,
+        )
+        self.assertEqual(len(variants), len(variant_indexes))
+        for i, (v, s) in enumerate(zip(variants, np.array(sim_data.sequences)[variant_indexes])):
+            self.assertIn(editdistance.eval(v, s), [1, 2], (i, (v, s)))
+        
 
 
 if __name__ == "__main__":
