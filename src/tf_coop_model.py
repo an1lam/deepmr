@@ -93,8 +93,9 @@ def add_args(parser):
         help="Path to directory from/to which to read/write data.",
     )
     parser.add_argument(
-        "--train_data_fname",
-        default="train_labels.csv",
+        "--train_data_fnames",
+        default=[],
+        action='append',
         help="Name of the file from which training sequences and labels will be loaded.",
     )
     parser.add_argument(
@@ -379,7 +380,12 @@ def train(args):
         torch.manual_seed(args.seed)
 
     # Load training data, one-hot encode it, & split it into actual train and validation data
-    train_df = pd.read_csv(os.path.join(args.data_dir, args.train_data_fname))
+
+    train_df = pd.read_csv(os.path.join(args.data_dir, args.train_data_fnames[0]))
+    for fname in args.train_data_fnames[1:]:
+        train_df = pd.concat((train_df, pd.read_csv(os.path.join(args.data_dir, fname))))
+    logging.info(f"Training on {len(train_df)} records")
+
     train_dataset = IterablePandasDataset(
         train_df,
         x_cols=args.sequences_col,
