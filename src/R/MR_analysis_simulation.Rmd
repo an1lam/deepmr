@@ -2,8 +2,8 @@
 title: "Mendelian Randomization analysis of DeepSEA generated data"
 output: html_notebook
 params:
-  exposure_tf: "Klf4"
-  outcome_tf: "Oct4"
+  exposure_tf: "GATA"
+  outcome_tf: "TAL1"
   output_dir: "../../fig/R/"
   save_plots: F
 ---
@@ -24,19 +24,19 @@ First let's load our data into a dataframe. This dataframe has 5 non-null column
 5. `Y_pred_var`: Standard error of the \( Z \rightarrow Y \) effect size estimate.
 
 ```{r}
-data_dir <- "../../dat/"
-results_dir <- "../../dat/"
+data_dir <- "../../dat/sim/"
+results_dir <- "../../dat/sim/res/"
 exposure_tf <- params$exposure_tf
 outcome_tf <- params$outcome_tf
 
-results_fname <- str_c(exposure_tf, outcome_tf, "effect_sizes.csv", sep = "_")
+results_fname <- str_c(exposure_tf, outcome_tf, "effect_sizes_v4.csv", sep = "_")
 seq_predictions <- read.csv(file.path(results_dir, results_fname))
 is.nan.data.frame <- function(x) {
   do.call(cbind, lapply(x, is.nan))
 }
 seq_predictions = seq_predictions %>% drop_na()
 
-n_seqs <- max(seq_predictions["seq_num"])
+n_seqs <- max(seq_predictions["seq_num"], 100)
 print(str_c("Running on ", n_seqs, " sequences' predictions for exposure ", exposure_tf, " and outcome ", outcome_tf))
 seq_predictions
 ```
@@ -138,7 +138,7 @@ sorted_idxs <- sort(egger_result$ce, index.return=TRUE)$ix
 median_idx <- as.integer(length(sorted_idxs) / 2) + 1
 max_idx <- as.integer(length(sorted_idxs)) - 1
 
-seq_median_preds <- subset(seq_predictions, seq_num == max_idx)
+seq_median_preds <- subset(seq_predictions, seq_num == median_idx)
 
 bxt <- unlist(seq_median_preds["X_pred_mean"])
 bxset <- unlist(seq_median_preds["X_pred_var"])
@@ -152,6 +152,7 @@ MRInputObject <- mr_input(
   byse = byset
 )
 MedianEggerObj <- mr_egger(MRInputObject)
+MedianEggerObj
 ```
 
 
