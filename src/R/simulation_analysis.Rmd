@@ -1,0 +1,149 @@
+---
+title: "Simulation Analysis"
+author: "Stephen Malina"
+date: "11/16/2020"
+output: html_document
+params:
+  sim_results_dir: "../../dat/sim/res"
+  output_dir: "../../fig/R/"
+  save_plots: F
+---
+
+```{r setup, include=FALSE}
+library(MendelianRandomization)
+library(dplyr)
+library(ks)
+library(tidyverse)
+library(ggplot2)
+library(stringr)
+library(foreach)
+```
+
+## R Markdown
+
+
+```{r}
+fit_egger <- function(exp_eff_sizes, exp_std_errs, out_eff_sizes, out_std_errs) {
+  MRInputObject <- mr_input(
+    bx = exp_eff_sizes,
+    bxse = exp_std_errs,
+    by = out_eff_sizes,
+    byse = out_std_errs
+  )  
+  EggerObject <- mr_egger(MRInputObject)
+  plots <- c(plots, mr_plot(MRInputObject))
+  result <- c(
+    EggerObject$Estimate,
+    EggerObject$CILower.Est,
+    EggerObject$CIUpper.Est,
+    EggerObject$I.sq,
+    EggerObject$Pleio.pval,
+    EggerObject$StdError.Est,
+    EggerObject$Intercept,
+    EggerObject$Pvalue.Est
+  )
+  return(result)
+}
+
+fit_ivw <- function(exp_eff_sizes, exp_std_errs, out_eff_sizes, out_std_errs) {
+  MRInputObject <- mr_input(
+    bx = exp_eff_sizes,
+    bxse = exp_std_errs,
+    by = out_eff_sizes,
+    byse = out_std_errs
+  )  
+  IvwObject <- mr_ivw(MRInputObject)
+  plots <- c(plots, mr_plot(MRInputObject))
+  result <- c(
+    IvwObject$Estimate,
+    IvwObject$CILower,
+    IvwObject$CIUpper,
+    IvwObject$StdError,
+    IvwObject$Pvalue
+  )
+  return(result)
+}
+
+run_mr <- function(seq_veffs, n_seqs, mr_method) {
+  ivw_vals <- list()
+  egger_vals <- list()
+  
+  if (mr_method == "egger") {
+    n_columns <- 8
+  } else if (mr_method == "ivw") {
+    n_columns <- 5
+  } else {
+    stop(str_c("Invalid MR method:", mr_method, sep=" "))
+  }
+  
+  mr_results <- matrix(ncol = n_columns, nrow = n_seqs)
+
+  for (seq in (1:n_seqs)) {
+    veffs <- subset(seq_veffs, seq_num == seq)
+  
+    bxt <- unlist(veffs["X_pred_mean"])
+    bxset <- unlist(veffs["X_pred_var"])
+    byt <- unlist(veffs["Y_pred_mean"])
+    byset <- unlist(veffs["Y_pred_var"])
+
+    if (mr_method == "egger") {
+      mr_res <- fit_egger(bxt, bxset, byt, byset)
+    } else if (mr_method == "ivw") {
+      mr_res <- fit_ivw(bxt, bxset, byt, byset)
+    }
+    mr_results[seq,] <- mr_res
+  }
+  
+  if (mr_method == "egger") {
+    colnames(mr_results) <- paste(
+      "egger", 
+      c(
+        "ce",
+        "cil",
+        "ciu",
+        "i.sq",
+        "pleio",
+        "std",
+        "int",
+        "pval"
+      ),
+      sep="."
+    )
+  } else if (mr_method == "ivw") {
+    colnames(mr_results) <- c(
+      "ce",
+      "cil",
+      "ciu",
+      "std",
+      "pval"
+    )
+  }
+  mr_results <- as_tibble(mr_results)
+  return(mr_results)
+}
+
+measure_confidence_interval_calibration <- function(cis, true_vals) {
+  true_val_captured <- foreach(ci=cis, true_val=true_vals) %do% {
+    (ci$lower <= true_val) & (ci$upper >= true_val)
+  }
+  return(length(true_val_captured[true_val_captured == T]) / length(true_vals))
+}
+```
+
+```{r}
+exp_tfs <- c("GATA")
+out_tfs <- c("TAL1")
+n_seqs <- 3 # todo: should be number of seqs
+
+mr_results <- foreach(exp_tf=exp_tfs, out_tf=out_tfs, .combine=cbind) %do% {
+  sim_eff_sizes_fname <- str_c(exp_tf, out_tf, "effect_sizes.csv", sep="_")
+  seq_eff_sizes <- 
+    read.csv(file.path(params$sim_results_dir, sim_eff_sizes_fname)) %>%
+    drop_na()
+  run_mr(seq_eff_sizes, n_seqs, "egger")
+}
+```
+
+```{r}
+mr_results
+```
