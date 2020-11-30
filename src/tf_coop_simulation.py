@@ -54,6 +54,12 @@ def add_args(parser):
         default=0.0,
         help="Fraction of train/test sequences to duplicate and mutate.",
     )
+    parser.add_argument(
+        "--max_mutations_per_variant",
+        type=int,
+        default=1,
+        help="Maximum number of mutations to make per variant produced.",
+    )
 
     parser.add_argument(
         "--data_dir",
@@ -169,31 +175,38 @@ def mutate_nt(nt):
     return ints_to_nts[(nts_to_ints[nt] + np.random.choice([1, 2, 3])) % 4]
 
 
-def mutate_sequence(sequence, embedding):
+def mutate_sequence(sequence, embedding, n_mutations=1):
+
     if embedding is not None:
         start_pos = embedding.startPos
         embedded_seq = embedding.what.string
-        mutation_pos = start_pos + np.random.choice(np.arange(len(embedded_seq)))
+        embed_pos = np.random.choice(np.arange(len(embedded_seq)), size=n_mutations, replace=False)
+        mutation_pos = start_pos + embed_pos
     else:
-        mutation_pos = np.random.choice(np.arange(len(sequence)))
+        mutation_pos = np.random.choice(np.arange(len(sequence)), size=n_mutations, replace=False)
 
-    new_nt = mutate_nt(sequence[mutation_pos])
-    new_sequence = sequence[:mutation_pos] + new_nt + sequence[mutation_pos + 1 :]
+    new_sequence = None
+    for pos in mutation_pos:
+        new_nt = mutate_nt(sequence[pos])
+        new_sequence = sequence[:pos] + new_nt + sequence[pos + 1 :]
     return new_sequence
 
 
 def mutate_sequences(sequences, embeddings, max_mutations_per_variant=1):
     variants = []
     for sequence, embeddings_ in zip(sequences, embeddings):
+        variant = None
+        n_mutations = np.random.randint(1, max_mutations_per_variant+1)
         if len(embeddings_) == 1:
-            variant = mutate_sequence(sequence, embeddings_[0])
+            variant = mutate_sequence(sequence, embeddings_[0], n_mutations=n_mutations)
         elif len(embeddings_) == 3:
             variant = mutate_sequence(
-                mutate_sequence(sequence, embeddings_[0]), embeddings_[1]
+                mutate_sequence(sequence, embeddings_[0], n_mutations=n_mutations), 
+                embeddings_[1], n_mutations=n_mutations
             )
         else:
             assert len(embeddings_) == 0
-            variant = mutate_sequence(sequence, None)
+            variant = mutate_sequence(sequence, None, n_mutations=n_mutations)
         variants.append(variant)
         
     return variants
@@ -416,6 +429,7 @@ def main(args):
             exposure_pwm,
             outcome_pwm,
             frac=args.variant_augmentation_percentage,
+            max_mutations_per_variant=args.max_mutations_per_variant,
         )
         (
             test_variants,
@@ -429,6 +443,7 @@ def main(args):
             exposure_pwm,
             outcome_pwm,
             frac=args.variant_augmentation_percentage,
+            max_mutations_per_variant=args.max_mutations_per_variant,
         )
         train_variant_df = pd.DataFrame(
             {
