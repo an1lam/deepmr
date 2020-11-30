@@ -185,7 +185,7 @@ def filter_predictions_to_matching_cols(relevant_cols):
     return _filter
 
 
-def write_results(result_fpath, diffs, stderrs, x_col=0, y_col=1):
+def write_results(result_fpath, diffs, stderrs, x_col=0, y_col=1, sig_idxs=None):
     fieldnames = [
         "seq_num",
         "X_pred_mean",
@@ -193,6 +193,9 @@ def write_results(result_fpath, diffs, stderrs, x_col=0, y_col=1):
         "Y_pred_mean",
         "Y_pred_var",
     ]
+    if sig_idxs is None:
+        sig_idxs = np.full(diffs.shape, True, dtype=bool)
+    
     with open(result_fpath, "w", newline="") as out_file:
         writer = csv.DictWriter(out_file, delimiter=",", fieldnames=fieldnames)
         writer.writeheader()
@@ -201,19 +204,20 @@ def write_results(result_fpath, diffs, stderrs, x_col=0, y_col=1):
         for seq_idx in range(n_seqs):
             for seq_pos in range(seq_len):
                 for nt_pos in range(n_muts):
-                    x_eff_size = diffs[seq_idx, nt_pos, seq_pos, x_col]
-                    y_eff_size = diffs[seq_idx, nt_pos, seq_pos, y_col]
-                    x_stderr = stderrs[seq_idx, nt_pos, seq_pos, x_col]
-                    y_stderr = stderrs[seq_idx, nt_pos, seq_pos, y_col]
-                    writer.writerow(
-                        {
-                            "seq_num": seq_idx + 1,
-                            "X_pred_mean": x_eff_size,
-                            "X_pred_var": x_stderr,
-                            "Y_pred_mean": y_eff_size,
-                            "Y_pred_var": y_stderr,
-                        }
-                    )
+                    if sig_idxs[seq_idx, nt_pos, seq_pos]:
+                        x_eff_size = diffs[seq_idx, nt_pos, seq_pos, x_col]
+                        y_eff_size = diffs[seq_idx, nt_pos, seq_pos, y_col]
+                        x_stderr = stderrs[seq_idx, nt_pos, seq_pos, x_col]
+                        y_stderr = stderrs[seq_idx, nt_pos, seq_pos, y_col]
+                        writer.writerow(
+                            {
+                                "seq_num": seq_idx + 1,
+                                "X_pred_mean": x_eff_size,
+                                "X_pred_var": x_stderr,
+                                "Y_pred_mean": y_eff_size,
+                                "Y_pred_var": y_stderr,
+                            }
+                        )
 
 
 def main(args):
