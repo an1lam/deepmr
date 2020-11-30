@@ -85,18 +85,19 @@ run_mr <- function(seq_veffs, n_seqs, mr_method) {
 
   for (seq in (1:n_seqs)) {
     veffs <- subset(seq_veffs, seq_num == seq)
+    if (nrow(veffs) > 2) {
+      bxt <- unlist(veffs["X_pred_mean"])
+      bxset <- unlist(veffs["X_pred_var"])
+      byt <- unlist(veffs["Y_pred_mean"])
+      byset <- unlist(veffs["Y_pred_var"])
   
-    bxt <- unlist(veffs["X_pred_mean"])
-    bxset <- unlist(veffs["X_pred_var"])
-    byt <- unlist(veffs["Y_pred_mean"])
-    byset <- unlist(veffs["Y_pred_var"])
-
-    if (mr_method == "egger") {
-      mr_res <- fit_egger(bxt, bxset, byt, byset)
-    } else if (mr_method == "ivw") {
-      mr_res <- fit_ivw(bxt, bxset, byt, byset)
+      if (mr_method == "egger") {
+        mr_res <- fit_egger(bxt, bxset, byt, byset)
+      } else if (mr_method == "ivw") {
+        mr_res <- fit_ivw(bxt, bxset, byt, byset)
+      }
+      mr_results[seq,] <- mr_res
     }
-    mr_results[seq,] <- mr_res
   }
   
   if (mr_method == "egger") {
@@ -143,26 +144,30 @@ measure_confidence_interval_calibration <- function(cis_true_vals) {
 }
 ```
 
+
 ```{r}
 exp_tfs <- c("GATA")
 out_tfs <- c("TAL1")
 
 mr_results <- foreach(exp_tf=exp_tfs, out_tf=out_tfs, .combine=cbind) %do% {
-  sim_eff_sizes_fname <- str_c(exp_tf, out_tf, "effect_sizes_v2.csv", sep="_")
+  sim_eff_sizes_fname <- str_c(exp_tf, out_tf, "effect_sizes_v3.csv", sep="_")
   seq_eff_sizes <- 
     read.csv(file.path(params$sim_results_dir, sim_eff_sizes_fname)) %>%
     drop_na()
   n_seqs <- max(seq_eff_sizes$seq_num)
   run_mr(seq_eff_sizes, n_seqs, "egger")
 }
+head(mr_results)
 ```
 
 ```{r}
+mr_results <- mr_results %>%
+  drop_na()
 cis <- mr_results[c("egger.ciu", "egger.cil")] %>%
   rename("upper" = "egger.ciu", "lower" = "egger.cil")
 sim_true_ces_fname <- str_c(exp_tf, out_tf, "true_ces.csv", sep="_")
 true_ces <- read.csv(file.path(params$sim_results_dir, sim_true_ces_fname))
-cis$true_val <- true_ces$CI
+cis$true_val <- true_ces$CI[which(!is.na(cis$"upper"))]
 measure_confidence_interval_calibration(cis)
 ```
 
@@ -177,52 +182,50 @@ ce_smoothed <- ks::kde(
   bgridsize = c(200)
 )
 
-# if (params$save_plots) {
-#   output_fname <- str_c(cell_type, tf, "ces_kde.png", sep = "_")
-#   output_fpath <- file.path(params$output_dir, output_fname)
-#   png(output_fpath, width = 512, height = 320)
-#   par(mar = c(5, 6, 5, 1) + .1)
-# }
+if (params$save_plots) {
+  output_fname <- str_c(exp_tf, out_tf, "ces_kde.png", sep = "_")
+  output_fpath <- file.path(params$output_dir, output_fname)
+  png(output_fpath, width = 512, height = 320)
+  par(mar = c(5, 6, 5, 1) + .1)
+}
 plot(
   ce_smoothed,
-  xlab = "Causal Effect",
-  # main = str_c("Causal Effect Estimates (", tf, ")"),
+  xlab = "Causal Effect ( ",
+  main = str_c("Causal Effect Estimates (", exp_tf, " on ", out_tf, ")"),
   cex.lab = 2,
   cex.main = 2,
   ylab = "Density"
 )
-# if (params$save_plots) {
-#   dev.off()
-# }
+if (params$save_plots) {
+  dev.off()
+}
 
-meta_result <- meta::metagen(mr_results$"egger.ce", mr_results$"egger.std")
-meta_result
 ```
 
 ```{r}
-below_ci_lower <- cis[which(
+below_ci_lower_idxs <- which(
   (cis$true_val < cis$lower)
-),]
+)
 above_ci_upper_idxs <- which((cis$true_val > cis$upper))
 above_ci_upper_idxs
+below_ci_lower_idxs
 ```
 
 ```{r}
 seq_eff_sizes <- 
   read.csv(file.path(params$sim_results_dir, sim_eff_sizes_fname)) %>%
   drop_na()
-sample_misclassified_veffs <- subset(seq_eff_sizes, seq_num == 18)
+sample_misclassified_veffs <- subset(seq_eff_sizes, seq_num == 17)
 bxt <- unlist(sample_misclassified_veffs["X_pred_mean"])
 bxset <- unlist(sample_misclassified_veffs["X_pred_var"])
 byt <- unlist(sample_misclassified_veffs["Y_pred_mean"])
 byset <- unlist(sample_misclassified_veffs["Y_pred_var"])
-  MRInputObject <- mr_input(
-    bx = bxt,
-    bxse = bxset,
-    by = byt,
-    byse = byset
-  )  
+MRInputObject <- mr_input(
+  bx = bxt,
+  bxse = bxset,
+  by = byt,
+  byse = byset
+)  
 mr_plot(MRInputObject)
-mr_results <- mr_lasso(MRInputObject)
-mr_results
+fit_egger(bxt, bxset, byt, byset)
 ```
