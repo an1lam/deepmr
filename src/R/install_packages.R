@@ -1,3 +1,12 @@
+# Note: Installing these packages on a new machine typically requires
+# setting up OpenSSL:
+# 
+#   On Linux (Debian): sudo apt install r-cran-openssl
+#  
+# and libxml:
+#
+#   On Linux: sudo apt install libxml2-dev
+#
 # Pre-requisites
 install.packages(c("readr", "iterpc", "plotly", "mvtnorm", "codetools"))
 
@@ -11,3 +20,4 @@ install.packages("ks")
 install.packages("ggplot2")
 install.packages("stringr")
 install.packages("foreach")
+install.packages("meta")

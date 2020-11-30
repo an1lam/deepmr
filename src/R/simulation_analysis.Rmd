@@ -13,14 +13,20 @@ params:
 library(MendelianRandomization)
 library(dplyr)
 library(ks)
+library(meta)
 library(tidyverse)
 library(ggplot2)
 library(stringr)
 library(foreach)
+library(purrr)
+library(slider)
+library(ks)
 ```
 
-## R Markdown
-
+## Functions
+Here we define functions for running MR on our sequence-specific effect sizes
+and standard errors and also for assessing the quality of the resulting
+causal effects.
 
 ```{r}
 fit_egger <- function(exp_eff_sizes, exp_std_errs, out_eff_sizes, out_std_errs) {
@@ -31,7 +37,6 @@ fit_egger <- function(exp_eff_sizes, exp_std_errs, out_eff_sizes, out_std_errs) 
     byse = out_std_errs
   )  
   EggerObject <- mr_egger(MRInputObject)
-  plots <- c(plots, mr_plot(MRInputObject))
   result <- c(
     EggerObject$Estimate,
     EggerObject$CILower.Est,
@@ -122,28 +127,102 @@ run_mr <- function(seq_veffs, n_seqs, mr_method) {
   return(mr_results)
 }
 
-measure_confidence_interval_calibration <- function(cis, true_vals) {
-  true_val_captured <- foreach(ci=cis, true_val=true_vals) %do% {
-    (ci$lower <= true_val) & (ci$upper >= true_val)
-  }
-  return(length(true_val_captured[true_val_captured == T]) / length(true_vals))
+measure_confidence_interval_calibration <- function(cis_true_vals) {
+  true_val_captured <- cis_true_vals[which(
+    (cis_true_vals$true_val >= cis_true_vals$lower) & 
+    (cis_true_vals$true_val <= cis_true_vals$upper)
+  ),]
+  true_val_not_captured <- cis_true_vals[which(
+    !((cis_true_vals$true_val >= cis_true_vals$lower) & 
+    (cis_true_vals$true_val <= cis_true_vals$upper))
+  ),]
+  assertthat::are_equal(
+    nrow(true_val_captured) + nrow(true_val_not_captured), nrow(cis_true_vals)
+  )
+  return(nrow(true_val_captured) / nrow(cis_true_vals))
 }
 ```
 
 ```{r}
 exp_tfs <- c("GATA")
 out_tfs <- c("TAL1")
-n_seqs <- 3 # todo: should be number of seqs
 
 mr_results <- foreach(exp_tf=exp_tfs, out_tf=out_tfs, .combine=cbind) %do% {
-  sim_eff_sizes_fname <- str_c(exp_tf, out_tf, "effect_sizes.csv", sep="_")
+  sim_eff_sizes_fname <- str_c(exp_tf, out_tf, "effect_sizes_v2.csv", sep="_")
   seq_eff_sizes <- 
     read.csv(file.path(params$sim_results_dir, sim_eff_sizes_fname)) %>%
     drop_na()
+  n_seqs <- max(seq_eff_sizes$seq_num)
   run_mr(seq_eff_sizes, n_seqs, "egger")
 }
 ```
 
 ```{r}
+cis <- mr_results[c("egger.ciu", "egger.cil")] %>%
+  rename("upper" = "egger.ciu", "lower" = "egger.cil")
+sim_true_ces_fname <- str_c(exp_tf, out_tf, "true_ces.csv", sep="_")
+true_ces <- read.csv(file.path(params$sim_results_dir, sim_true_ces_fname))
+cis$true_val <- true_ces$CI
+measure_confidence_interval_calibration(cis)
+```
+
+```{r}
+d <- density(mr_results$"egger.ce")
+ce_smoothed <- ks::kde(
+  x = mr_results$"egger.ce",
+  binned = TRUE,
+  compute.cont = TRUE,
+  xmin = c(min(mr_results$"egger.ce") - 1),
+  xmax = c(max(mr_results$"egger.ce") + 1),
+  bgridsize = c(200)
+)
+
+# if (params$save_plots) {
+#   output_fname <- str_c(cell_type, tf, "ces_kde.png", sep = "_")
+#   output_fpath <- file.path(params$output_dir, output_fname)
+#   png(output_fpath, width = 512, height = 320)
+#   par(mar = c(5, 6, 5, 1) + .1)
+# }
+plot(
+  ce_smoothed,
+  xlab = "Causal Effect",
+  # main = str_c("Causal Effect Estimates (", tf, ")"),
+  cex.lab = 2,
+  cex.main = 2,
+  ylab = "Density"
+)
+# if (params$save_plots) {
+#   dev.off()
+# }
+
+meta_result <- meta::metagen(mr_results$"egger.ce", mr_results$"egger.std")
+meta_result
+```
+
+```{r}
+below_ci_lower <- cis[which(
+  (cis$true_val < cis$lower)
+),]
+above_ci_upper_idxs <- which((cis$true_val > cis$upper))
+above_ci_upper_idxs
+```
+
+```{r}
+seq_eff_sizes <- 
+  read.csv(file.path(params$sim_results_dir, sim_eff_sizes_fname)) %>%
+  drop_na()
+sample_misclassified_veffs <- subset(seq_eff_sizes, seq_num == 18)
+bxt <- unlist(sample_misclassified_veffs["X_pred_mean"])
+bxset <- unlist(sample_misclassified_veffs["X_pred_var"])
+byt <- unlist(sample_misclassified_veffs["Y_pred_mean"])
+byset <- unlist(sample_misclassified_veffs["Y_pred_var"])
+  MRInputObject <- mr_input(
+    bx = bxt,
+    bxse = bxset,
+    by = byt,
+    byse = byset
+  )  
+mr_plot(MRInputObject)
+mr_results <- mr_lasso(MRInputObject)
 mr_results
 ```
