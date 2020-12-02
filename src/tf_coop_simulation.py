@@ -37,6 +37,11 @@ def add_args(parser):
         help="Name of motif for the effect TF in the simulation",
     )
     parser.add_argument(
+        "--confounder_motif",
+        default=None,
+        help="Name of motif for TF whose presence acts as a confounder in the simulation."
+    )
+    parser.add_argument(
         "--train_sequences",
         type=int,
         default=50000,
@@ -121,7 +126,7 @@ def ddg_pwm_score(one_hot_sequences, pwm, mu=0):
     return 1 / (1 + np.exp(nll_scores - mu))
 
 
-def simulate_counts(sequences, exposure_pwm, outcome_pwm):
+def simulate_counts(sequences, exposure_pwm, outcome_pwm, confounder_pwm=None):
     """
     Assign each sequence a "count" for exposure / outcome TFs by summing the PWM scores for each.
 
@@ -133,17 +138,25 @@ def simulate_counts(sequences, exposure_pwm, outcome_pwm):
 
     one_hot_sequences = np.array([one_hot(sequence) for sequence in sequences])
     # Convert to negative log-likelihood ratio for numerical stability.
+    q_conf = 0
+    if confounder_pwm is not None:
+        q_conf = 1 - np.prod(
+            1 - ddg_pwm_score(one_hot_sequences, confounder_pwm), axis=-1
+        )
     q_exp = 1 - np.prod(1 - ddg_pwm_score(one_hot_sequences, exposure_pwm), axis=-1)
     q_out = 1 - np.prod(1 - ddg_pwm_score(one_hot_sequences, outcome_pwm), axis=-1)
-    return q_exp, q_out
+    return q_exp, q_out, q_conf
 
 
 def simulate_oracle_predictions(
     sequences,
     exposure_pwm,
     outcome_pwm,
+    confounder_pwm=None,
     alpha=100,
     beta=100,
+    eta=20,
+    nu=30,
     exp_bias=0,
     out_bias=0,
 ):
@@ -158,9 +171,11 @@ def simulate_oracle_predictions(
        of the PWM score and some scalar and the output be a multiplicative function of the exposure
        and outcome scores and some scalar.
     """
-    q_exp, q_out = simulate_counts(sequences, exposure_pwm, outcome_pwm)
-    c_exp = exp_bias + alpha * q_exp
-    c_out = out_bias + beta * (q_exp * q_out)
+    q_exp, q_out, q_conf = simulate_counts(
+        sequences, exposure_pwm, outcome_pwm, confounder_pwm=confounder_pwm
+    )
+    c_exp = exp_bias + alpha * q_exp + eta * q_conf
+    c_out = out_bias + beta * (q_exp * q_out) + nu * q_conf
 
     c_exp_noisy = np.random.poisson(c_exp, len(c_exp))
     c_out_noisy = np.random.poisson(c_out, len(c_out))
@@ -180,10 +195,14 @@ def mutate_sequence(sequence, embedding, n_mutations=1):
     if embedding is not None:
         start_pos = embedding.startPos
         embedded_seq = embedding.what.string
-        embed_pos = np.random.choice(np.arange(len(embedded_seq)), size=n_mutations, replace=False)
+        embed_pos = np.random.choice(
+            np.arange(len(embedded_seq)), size=n_mutations, replace=False
+        )
         mutation_pos = start_pos + embed_pos
     else:
-        mutation_pos = np.random.choice(np.arange(len(sequence)), size=n_mutations, replace=False)
+        mutation_pos = np.random.choice(
+            np.arange(len(sequence)), size=n_mutations, replace=False
+        )
 
     new_sequence = None
     for pos in mutation_pos:
@@ -196,19 +215,20 @@ def mutate_sequences(sequences, embeddings, max_mutations_per_variant=1):
     variants = []
     for sequence, embeddings_ in zip(sequences, embeddings):
         variant = None
-        n_mutations = np.random.randint(1, max_mutations_per_variant+1)
+        n_mutations = np.random.randint(1, max_mutations_per_variant + 1)
         if len(embeddings_) == 1:
             variant = mutate_sequence(sequence, embeddings_[0], n_mutations=n_mutations)
         elif len(embeddings_) == 3:
             variant = mutate_sequence(
-                mutate_sequence(sequence, embeddings_[0], n_mutations=n_mutations), 
-                embeddings_[1], n_mutations=n_mutations
+                mutate_sequence(sequence, embeddings_[0], n_mutations=n_mutations),
+                embeddings_[1],
+                n_mutations=n_mutations,
             )
         else:
             assert len(embeddings_) == 0
             variant = mutate_sequence(sequence, None, n_mutations=n_mutations)
         variants.append(variant)
-        
+
     return variants
 
 
@@ -218,16 +238,24 @@ def generate_variant_counts_and_labels(
     embeddings,
     exposure_pwm,
     outcome_pwm,
+    confounder_pwm=None,
     frac=1.0,
     max_mutations_per_variant=1,
 ):
     n_variants = int(len(sequences) * frac)
-    variant_indexes = np.random.choice(np.arange(len(sequences)), size=n_variants).astype(np.int)
+    variant_indexes = np.random.choice(
+        np.arange(len(sequences)), size=n_variants
+    ).astype(np.int)
     variants = [sequences[i] for i in variant_indexes].copy()
     variants = mutate_sequences(
         variants, embeddings, max_mutations_per_variant=max_mutations_per_variant
     )
-    variant_counts = simulate_oracle_predictions([str(v) for v in variants], exposure_pwm, outcome_pwm)
+    variant_counts = simulate_oracle_predictions(
+        [str(v) for v in variants],
+        exposure_pwm,
+        outcome_pwm,
+        confounder_pwm=confounder_pwm,
+    )
     variant_labels = labels[variant_indexes].copy()
     return variants, variant_counts, variant_labels, variant_indexes
 
@@ -239,35 +267,34 @@ def generate_sequences_mixture(
     motifs,
     exposure_motif,
     outcome_motif,
+    confounder_motif=None,
     n_train_sequences=100,
     n_test_sequences=10,
     sequence_length=100,
 ):
     # Setup generator for background nucleotide distribution
     background_generator = synthetic.ZeroOrderBackgroundGenerator(
-        seqLength=sequence_length,
-        discreteDistribution=background_frequency,
+        seqLength=sequence_length, discreteDistribution=background_frequency,
     )
 
-    # Set up embedders for the two motif"s PWMs
+    # Set up embedders for the two / three motifs' PWMs
     position_generator = synthetic.UniformPositionGenerator()
     motif_lengths = [
         len(motifs.getPwm(name).getRows()) for name in [exposure_motif, outcome_motif]
     ]
+    if confounder_motif is not None:
+        motif_lengths.append(len(motifs.getPwm(confounder_motif).getRows()))
 
     # Generate sequences
     spacing_generator = synthetic.UniformIntegerGenerator(
         max(motif_lengths), sequence_length - sum(motif_lengths)
     )
-    exposure_motif_generator = synthetic.PwmSamplerFromLoadedMotifs(
-        motifs, exposure_motif
-    )
-    outcome_motif_generator = synthetic.PwmSamplerFromLoadedMotifs(
-        motifs, outcome_motif
-    )
-    embedders = [
+    exposure_motif_generator = synthetic.PwmSamplerFromLoadedMotifs( motifs, exposure_motif)
+    outcome_motif_generator = synthetic.PwmSamplerFromLoadedMotifs( motifs, outcome_motif)
+
+    individual_embedders = [
         synthetic.SubstringEmbedder(
-            substringGenerator=exposure_motif_generator,
+            exposure_motif_generator,
             positionGenerator=position_generator,
             name=exposure_motif,
         ),
@@ -284,11 +311,21 @@ def generate_sequences_mixture(
             )
         ),
     ]
-    overall_embedder = synthetic.RandomSubsetOfEmbedders(
-        synthetic.BernoulliQuantityGenerator(0.75), embedders
-    )
+    embedders = [synthetic.RandomSubsetOfEmbedders(
+        synthetic.BernoulliQuantityGenerator(0.75), individual_embedders
+    )]
+    if confounder_motif is not None:
+        confounder_motif_generator = synthetic.PwmSamplerFromLoadedMotifs( motifs, confounder_motif)
+        confounder_motif_embedder = synthetic.SubstringEmbedder(
+            substringGenerator=synthetic.PwmSamplerFromLoadedMotifs(motifs, confounder_motif),
+            positionGenerator=position_generator,
+        )
+        embedders.append(synthetic.RandomSubsetOfEmbedders(
+            synthetic.BernoulliQuantityGenerator(.5), [confounder_motif_embedder]
+        ))
+
     sequence_sim = synthetic.EmbedInABackground(
-        backgroundGenerator=background_generator, embedders=[overall_embedder]
+        backgroundGenerator=background_generator, embedders=embedders
     )
     train_sequences = synthetic.GenerateSequenceNTimes(sequence_sim, n_train_sequences)
     test_sequences = synthetic.GenerateSequenceNTimes(sequence_sim, n_test_sequences)
@@ -309,6 +346,7 @@ def main(args):
         motifs,
         args.exposure_motif,
         args.outcome_motif,
+        confounder_motif=args.confounder_motif,
         n_train_sequences=args.train_sequences,
         n_test_sequences=args.test_sequences,
         sequence_length=args.sequence_length,
@@ -321,6 +359,11 @@ def main(args):
         has_outcome_motif = generated_sequence.additionalInfo.isInTrace(
             args.outcome_motif
         )
+        has_confounder_motif = False
+        if args.confounder_motif is not None:
+            has_confounder_motif = generated_sequence.additionalInfo.isInTrace(
+                args.confounder_motif
+            )
         has_both_motifs = generated_sequence.additionalInfo.isInTrace(
             "EmbeddableEmbedder"
         )
@@ -328,17 +371,17 @@ def main(args):
             int(has_exposure_motif or has_both_motifs),
             int(has_outcome_motif or has_both_motifs),
             int(has_both_motifs),
+            int(has_confounder_motif),
         ]
 
-    label_names = ["has_exposure", "has_outcome", "has_both"]
+    label_names = ["has_exposure", "has_outcome", "has_both", "has_confounder_motif"]
     synthetic.printSequences(
         os.path.join(args.data_dir, "train_sequences.simdata"),
         train_sequences,
         includeFasta=True,
         includeEmbeddings=True,
         labelGenerator=synthetic.LabelGenerator(
-            labelNames=label_names,
-            labelsFromGeneratedSequenceFunction=assign_labels,
+            labelNames=label_names, labelsFromGeneratedSequenceFunction=assign_labels,
         ),
         prefix="train",
     )
@@ -348,8 +391,7 @@ def main(args):
         includeFasta=True,
         includeEmbeddings=True,
         labelGenerator=synthetic.LabelGenerator(
-            labelNames=label_names,
-            labelsFromGeneratedSequenceFunction=assign_labels,
+            labelNames=label_names, labelsFromGeneratedSequenceFunction=assign_labels,
         ),
         prefix="test",
     )
@@ -369,12 +411,17 @@ def main(args):
     test_embeddings = test_sim_data.embeddings
 
     # Generate count labels for labels
+    print(motifs.loadedMotifs)
     exposure_pwm = motifs.loadedMotifs[args.exposure_motif].getRows()
     outcome_pwm = motifs.loadedMotifs[args.outcome_motif].getRows()
+    confounder_pwm = None
+    if args.confounder_motif is not None:
+        confounder_pwm = motifs.loadedMotifs[args.confounder_motif].getRows()
+
     train_counts = simulate_oracle_predictions(
-        train_sequences, exposure_pwm, outcome_pwm
+        train_sequences, exposure_pwm, outcome_pwm, confounder_pwm=confounder_pwm
     )
-    test_counts = simulate_oracle_predictions(test_sequences, exposure_pwm, outcome_pwm)
+    test_counts = simulate_oracle_predictions(test_sequences, exposure_pwm, outcome_pwm, confounder_pwm=confounder_pwm)
 
     if args.log_summary_stats:
         fig, axs = plt.subplots(2, 1, figsize=(6, 10))
@@ -387,6 +434,7 @@ def main(args):
         axs[1].set_ylabel("Expected Counts")
         plt.savefig(os.path.join(args.data_dir, "counts_vs_q_plot.png"))
 
+    print(train_labels.shape, len(train_labels[:, 3]))
     train_df = pd.DataFrame(
         {
             "sequences": train_sequences,
@@ -395,6 +443,7 @@ def main(args):
             "has_exposure": train_labels[:, 0],
             "has_outcome": train_labels[:, 1],
             "has_both": train_labels[:, 2],
+            "has_confounder": train_labels[:, 3],
         }
     )
     test_df = pd.DataFrame(
@@ -405,6 +454,7 @@ def main(args):
             "has_exposure": test_labels[:, 0],
             "has_outcome": test_labels[:, 1],
             "has_both": test_labels[:, 2],
+            "has_confounder": test_labels[:, 3],
         }
     )
     # Save labeled data to file to be used for model training and predictions
@@ -428,6 +478,7 @@ def main(args):
             train_embeddings,
             exposure_pwm,
             outcome_pwm,
+            confounder_pwm=confounder_pwm,
             frac=args.variant_augmentation_percentage,
             max_mutations_per_variant=args.max_mutations_per_variant,
         )
@@ -442,6 +493,7 @@ def main(args):
             test_embeddings,
             exposure_pwm,
             outcome_pwm,
+            confounder_pwm=confounder_pwm,
             frac=args.variant_augmentation_percentage,
             max_mutations_per_variant=args.max_mutations_per_variant,
         )
@@ -453,6 +505,7 @@ def main(args):
                 "has_exposure": train_variant_labels[:, 0],
                 "has_outcome": train_variant_labels[:, 1],
                 "has_both": train_variant_labels[:, 2],
+                "has_confounder": train_variant_labels[:, 3],
                 "original_index": train_variant_indexes,
             }
         )
@@ -464,16 +517,20 @@ def main(args):
                 "has_exposure": test_variant_labels[:, 0],
                 "has_outcome": test_variant_labels[:, 1],
                 "has_both": test_variant_labels[:, 2],
+                "has_confounder": test_variant_labels[:, 3],
                 "original_index": test_variant_indexes,
             }
         )
         train_variant_df.to_csv(
-            os.path.join(args.data_dir, args.train_variant_data_fname), header=True, index=False
+            os.path.join(args.data_dir, args.train_variant_data_fname),
+            header=True,
+            index=False,
         )
         test_variant_df.to_csv(
-            os.path.join(args.data_dir, args.test_variant_data_fname), header=True, index=False
+            os.path.join(args.data_dir, args.test_variant_data_fname),
+            header=True,
+            index=False,
         )
-
 
     if args.log_summary_stats:
         logging.info(
@@ -486,7 +543,17 @@ def main(args):
                 train_df.labels_out.var(),
             )
         )
+        logging.info(
+            "Label counts: "
+            + "\n\twith exposure: %d, with outcome: %d, with both: %d, with confounder: %d"
+            % (
+                len(train_df[train_df["has_exposure"] == 1]),
+                len(train_df[train_df["has_outcome"] == 1]),
+                len(train_df[train_df["has_both"] == 1]),
+                len(train_df[train_df["has_confounder"] == 1]),
 
+            )
+        )
 
 
 if __name__ == "__main__":
