@@ -214,16 +214,18 @@ def mutate_sequence(sequence, embedding, n_mutations=1):
 def mutate_sequences(sequences, embeddings, max_mutations_per_variant=1):
     variants = []
     for sequence, embeddings_ in zip(sequences, embeddings):
+        variant = None
         n_mutations = np.random.randint(1, max_mutations_per_variant + 1)
-        if len(embeddings_) > 0:
-            variant = sequence
-            for i in range(len(embeddings_)):
-                variant = mutate_sequence(
-                    variant,
-                    embeddings_[i],
-                    n_mutations=n_mutations,
-                )
+        if len(embeddings_) == 1:
+            variant = mutate_sequence(sequence, embeddings_[0], n_mutations=n_mutations)
+        elif len(embeddings_) == 3:
+            variant = mutate_sequence(
+                mutate_sequence(sequence, embeddings_[0], n_mutations=n_mutations),
+                embeddings_[1],
+                n_mutations=n_mutations,
+            )
         else:
+            assert len(embeddings_) == 0
             variant = mutate_sequence(sequence, None, n_mutations=n_mutations)
         variants.append(variant)
 
@@ -262,7 +264,7 @@ background_frequency = OrderedDict([("A", 0.27), ("C", 0.23), ("G", 0.23), ("T",
 
 
 def generate_sequences_mixture(
-    loaded_motifs,
+    motifs,
     exposure_motif,
     outcome_motif,
     confounder_motif=None,
@@ -277,21 +279,50 @@ def generate_sequences_mixture(
 
     # Set up embedders for the two / three motifs' PWMs
     position_generator = synthetic.UniformPositionGenerator()
-    motifs = [exposure_motif, outcome_motif]
+    motif_lengths = [
+        len(motifs.getPwm(name).getRows()) for name in [exposure_motif, outcome_motif]
+    ]
     if confounder_motif is not None:
-        motifs.append(confounder_motif)
+        motif_lengths.append(len(motifs.getPwm(confounder_motif).getRows()))
 
-    motif_embedders = [
+    # Generate sequences
+    spacing_generator = synthetic.UniformIntegerGenerator(
+        max(motif_lengths), sequence_length - sum(motif_lengths)
+    )
+    exposure_motif_generator = synthetic.PwmSamplerFromLoadedMotifs( motifs, exposure_motif)
+    outcome_motif_generator = synthetic.PwmSamplerFromLoadedMotifs( motifs, outcome_motif)
+
+    individual_embedders = [
         synthetic.SubstringEmbedder(
-            synthetic.PwmSamplerFromLoadedMotifs(loaded_motifs, motif),
+            exposure_motif_generator,
             positionGenerator=position_generator,
-            name=motif,
-        )
-        for motif in motifs
+            name=exposure_motif,
+        ),
+        synthetic.SubstringEmbedder(
+            substringGenerator=outcome_motif_generator,
+            positionGenerator=position_generator,
+            name=outcome_motif,
+        ),
+        synthetic.EmbeddableEmbedder(
+            synthetic.PairEmbeddableGenerator(
+                embeddableGenerator1=exposure_motif_generator,
+                embeddableGenerator2=outcome_motif_generator,
+                separationGenerator=spacing_generator,
+            )
+        ),
     ]
     embedders = [synthetic.RandomSubsetOfEmbedders(
-        synthetic.UniformIntegerGenerator(1, 3), motif_embedders
+        synthetic.BernoulliQuantityGenerator(0.75), individual_embedders
     )]
+    if confounder_motif is not None:
+        confounder_motif_generator = synthetic.PwmSamplerFromLoadedMotifs( motifs, confounder_motif)
+        confounder_motif_embedder = synthetic.SubstringEmbedder(
+            substringGenerator=synthetic.PwmSamplerFromLoadedMotifs(motifs, confounder_motif),
+            positionGenerator=position_generator,
+        )
+        embedders.append(synthetic.RandomSubsetOfEmbedders(
+            synthetic.BernoulliQuantityGenerator(.5), [confounder_motif_embedder]
+        ))
 
     sequence_sim = synthetic.EmbedInABackground(
         backgroundGenerator=background_generator, embedders=embedders
@@ -333,10 +364,12 @@ def main(args):
             has_confounder_motif = generated_sequence.additionalInfo.isInTrace(
                 args.confounder_motif
             )
-        has_both_motifs = has_exposure_motif and has_outcome_motif
+        has_both_motifs = generated_sequence.additionalInfo.isInTrace(
+            "EmbeddableEmbedder"
+        )
         return [
-            int(has_exposure_motif),
-            int(has_outcome_motif),
+            int(has_exposure_motif or has_both_motifs),
+            int(has_outcome_motif or has_both_motifs),
             int(has_both_motifs),
             int(has_confounder_motif),
         ]
@@ -378,6 +411,7 @@ def main(args):
     test_embeddings = test_sim_data.embeddings
 
     # Generate count labels for labels
+    print(motifs.loadedMotifs)
     exposure_pwm = motifs.loadedMotifs[args.exposure_motif].getRows()
     outcome_pwm = motifs.loadedMotifs[args.outcome_motif].getRows()
     confounder_pwm = None
