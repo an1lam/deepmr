@@ -4,7 +4,7 @@ author: "Stephen Malina"
 date: "11/16/2020"
 output: html_document
 params:
-  sim_results_dir: "../../dat/sim/res"
+  sim_results_dir: "../../dat/sim_conf/res"
   output_dir: "../../fig/R/"
   save_plots: F
 ---
@@ -168,6 +168,7 @@ cis <- mr_results[c("egger.ciu", "egger.cil")] %>%
 sim_true_ces_fname <- str_c(exp_tf, out_tf, "true_ces.csv", sep="_")
 true_ces <- read.csv(file.path(params$sim_results_dir, sim_true_ces_fname))
 cis$true_val <- true_ces$CI[which(!is.na(cis$"upper"))]
+which(is.na(cis$true_val))
 measure_confidence_interval_calibration(cis)
 ```
 
@@ -201,6 +202,48 @@ if (params$save_plots) {
 }
 
 ```
+
+```{r}
+d <- density(cis$true_val[which(!is.na(cis$true_val))])
+ce_smoothed <- ks::kde(
+  x = cis$true_val[which(!is.na(cis$true_val))],
+  binned = TRUE,
+  compute.cont = TRUE,
+  xmin = 0,
+  xmax = 1,
+  bgridsize = c(200)
+)
+
+if (params$save_plots) {
+  output_fname <- str_c(exp_tf, out_tf, "ces_kde.png", sep = "_")
+  output_fpath <- file.path(params$output_dir, output_fname)
+  png(output_fpath, width = 512, height = 320)
+  par(mar = c(5, 6, 5, 1) + .1)
+}
+plot(
+  ce_smoothed,
+  xlab = "Causal Effect ( ",
+  main = str_c("True Causal Effects (", exp_tf, " on ", out_tf, ")"),
+  cex.lab = 2,
+  cex.main = 2,
+  ylab = "Density"
+)
+if (params$save_plots) {
+  dev.off()
+}
+
+```
+
+
+```{r}
+# meta_result <- meta::metagen(mr_results$"egger.ce", mr_results$"egger.std")
+```
+
+```{r}
+# meta_result
+```
+
+
 
 ```{r}
 below_ci_lower_idxs <- which(

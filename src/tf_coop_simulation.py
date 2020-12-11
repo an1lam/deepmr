@@ -15,6 +15,7 @@ from simdna import synthetic
 
 from np_utils import convolve_1d
 from pyx.one_hot import one_hot
+from simdna_extensions import PairEmbeddableGenerator
 
 
 def add_args(parser):
@@ -216,14 +217,16 @@ def mutate_sequences(sequences, embeddings, max_mutations_per_variant=1):
     for sequence, embeddings_ in zip(sequences, embeddings):
         variant = None
         n_mutations = np.random.randint(1, max_mutations_per_variant + 1)
-        if len(embeddings_) == 1:
-            variant = mutate_sequence(sequence, embeddings_[0], n_mutations=n_mutations)
-        elif len(embeddings_) == 3:
-            variant = mutate_sequence(
-                mutate_sequence(sequence, embeddings_[0], n_mutations=n_mutations),
-                embeddings_[1],
-                n_mutations=n_mutations,
-            )
+        variant = None
+        if len(embeddings_) > 0:
+            variant = sequence
+            for i in range(len(embeddings_)):
+                variant = mutate_sequence(
+                    variant,
+                    embeddings_[i],
+                    n_mutations=n_mutations,
+                )
+
         else:
             assert len(embeddings_) == 0
             variant = mutate_sequence(sequence, None, n_mutations=n_mutations)
@@ -304,10 +307,11 @@ def generate_sequences_mixture(
             name=outcome_motif,
         ),
         synthetic.EmbeddableEmbedder(
-            synthetic.PairEmbeddableGenerator(
+            PairEmbeddableGenerator(
                 embeddableGenerator1=exposure_motif_generator,
                 embeddableGenerator2=outcome_motif_generator,
                 separationGenerator=spacing_generator,
+                nothingInBetween=False,
             )
         ),
     ]
@@ -319,9 +323,10 @@ def generate_sequences_mixture(
         confounder_motif_embedder = synthetic.SubstringEmbedder(
             substringGenerator=synthetic.PwmSamplerFromLoadedMotifs(motifs, confounder_motif),
             positionGenerator=position_generator,
+            name=confounder_motif,
         )
         embedders.append(synthetic.RandomSubsetOfEmbedders(
-            synthetic.BernoulliQuantityGenerator(.5), [confounder_motif_embedder]
+            synthetic.BernoulliQuantityGenerator(.75), [confounder_motif_embedder]
         ))
 
     sequence_sim = synthetic.EmbedInABackground(
@@ -411,7 +416,6 @@ def main(args):
     test_embeddings = test_sim_data.embeddings
 
     # Generate count labels for labels
-    print(motifs.loadedMotifs)
     exposure_pwm = motifs.loadedMotifs[args.exposure_motif].getRows()
     outcome_pwm = motifs.loadedMotifs[args.outcome_motif].getRows()
     confounder_pwm = None
@@ -434,7 +438,6 @@ def main(args):
         axs[1].set_ylabel("Expected Counts")
         plt.savefig(os.path.join(args.data_dir, "counts_vs_q_plot.png"))
 
-    print(train_labels.shape, len(train_labels[:, 3]))
     train_df = pd.DataFrame(
         {
             "sequences": train_sequences,
