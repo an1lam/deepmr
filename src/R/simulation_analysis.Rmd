@@ -38,7 +38,7 @@ fit_egger <- function(exp_eff_sizes, exp_std_errs, out_eff_sizes, out_std_errs) 
     by = out_eff_sizes,
     byse = out_std_errs
   )  
-  EggerObject <- mr_egger(MRInputObject, alpha = .01)
+  EggerObject <- mr_egger(MRInputObject, alpha = .05)
   result <- c(
     EggerObject$Estimate,
     EggerObject$CILower.Est,
@@ -60,7 +60,6 @@ fit_ivw <- function(exp_eff_sizes, exp_std_errs, out_eff_sizes, out_std_errs) {
     byse = out_std_errs
   )  
   IvwObject <- mr_ivw(MRInputObject)
-  plots <- c(plots, mr_plot(MRInputObject))
   result <- c(
     IvwObject$Estimate,
     IvwObject$CILower,
@@ -118,12 +117,16 @@ run_mr <- function(seq_veffs, n_seqs, mr_method) {
       sep="."
     )
   } else if (mr_method == "ivw") {
-    colnames(mr_results) <- c(
+    colnames(mr_results) <- paste(
+      "ivw", 
+      c(
       "ce",
       "cil",
       "ciu",
       "std",
       "pval"
+      ),
+      sep = "."
     )
   }
   mr_results <- as_tibble(mr_results)
@@ -160,14 +163,14 @@ exp_tfs <- c("GATA")
 out_tfs <- c("TAL1")
 
 mr_results <- foreach(exp_tf=exp_tfs, out_tf=out_tfs, .combine=cbind) %do% {
-  sim_eff_sizes_fname <- str_c(exp_tf, out_tf, "effect_sizes_v3.csv", sep="_")
+  sim_eff_sizes_fname <- str_c(exp_tf, out_tf, "effect_sizes_calibrated_v1.csv", sep="_")
   seq_eff_sizes <- 
     read.csv(file.path(params$sim_results_dir, sim_eff_sizes_fname)) %>%
     drop_na()
   n_seqs <- max(seq_eff_sizes$seq_num)
   run_mr(seq_eff_sizes, n_seqs, "egger")
 }
-head(mr_results)
+mr_results
 ```
 
 ```{r}
@@ -182,6 +185,7 @@ cis <- cis[!is.na(cis$true_val), ]
 measure_confidence_interval_calibration(cis)
 ```
 
+
 ```{r}
 p1 <- ces_kde_plot(mr_results$"egger.ce")
 p2 <- ces_kde_plot(cis$true_val[which(!is.na(cis$true_val))])
@@ -195,3 +199,30 @@ summary(meta_result)
 mean(cis$true_val[which(!is.na(cis$true_val))])
 median(cis$true_val[which(!is.na(cis$true_val))])
 ```
+
+```{r}
+seq_eff_sizes <- foreach(exp_tf=exp_tfs, out_tf=out_tfs, .combine=cbind) %do% {
+  sim_eff_sizes_fname <- str_c(exp_tf, out_tf, "effect_sizes_calibrated_v1.csv", sep="_")
+  seq_eff_sizes <- 
+    read.csv(file.path(params$sim_results_dir, sim_eff_sizes_fname)) %>%
+    drop_na()
+  return(seq_eff_sizes)
+}
+
+ex_eff_sizes <- subset(seq_eff_sizes, seq_eff_sizes$seq_num == 100)
+bxt <- unlist(ex_eff_sizes["X_pred_mean"])
+bxset <- unlist(ex_eff_sizes["X_pred_var"])
+byt <- unlist(ex_eff_sizes["Y_pred_mean"])
+byset <- unlist(ex_eff_sizes["Y_pred_var"])
+MRInputObject <- mr_input(
+  bx = bxt,
+  bxse = bxset,
+  by = byt,
+  byse = byset
+)  
+mr_plot(MRInputObject)
+AllObject <- mr_egger(MRInputObject)
+AllObject
+MRInputObject
+```
+
