@@ -13,9 +13,11 @@ params:
 library(MendelianRandomization)
 library(dplyr)
 library(ks)
+library(stats)
 library(meta)
 library(tidyverse)
 library(ggplot2)
+library(ggpubr)
 library(stringr)
 library(foreach)
 library(purrr)
@@ -36,7 +38,7 @@ fit_egger <- function(exp_eff_sizes, exp_std_errs, out_eff_sizes, out_std_errs) 
     by = out_eff_sizes,
     byse = out_std_errs
   )  
-  EggerObject <- mr_egger(MRInputObject)
+  EggerObject <- mr_egger(MRInputObject, alpha = .05)
   result <- c(
     EggerObject$Estimate,
     EggerObject$CILower.Est,
@@ -58,7 +60,6 @@ fit_ivw <- function(exp_eff_sizes, exp_std_errs, out_eff_sizes, out_std_errs) {
     byse = out_std_errs
   )  
   IvwObject <- mr_ivw(MRInputObject)
-  plots <- c(plots, mr_plot(MRInputObject))
   result <- c(
     IvwObject$Estimate,
     IvwObject$CILower,
@@ -116,12 +117,16 @@ run_mr <- function(seq_veffs, n_seqs, mr_method) {
       sep="."
     )
   } else if (mr_method == "ivw") {
-    colnames(mr_results) <- c(
+    colnames(mr_results) <- paste(
+      "ivw", 
+      c(
       "ce",
       "cil",
       "ciu",
       "std",
       "pval"
+      ),
+      sep = "."
     )
   }
   mr_results <- as_tibble(mr_results)
@@ -142,6 +147,14 @@ measure_confidence_interval_calibration <- function(cis_true_vals) {
   )
   return(nrow(true_val_captured) / nrow(cis_true_vals))
 }
+
+ces_kde_plot <- function(ces, save_plots = F) {
+  p <- ggplot() +
+    geom_density(aes(x = ces)) +
+    xlab("Causal Effect") +
+    ylab("Density")
+  return(p)
+}
 ```
 
 
@@ -150,14 +163,14 @@ exp_tfs <- c("GATA")
 out_tfs <- c("TAL1")
 
 mr_results <- foreach(exp_tf=exp_tfs, out_tf=out_tfs, .combine=cbind) %do% {
-  sim_eff_sizes_fname <- str_c(exp_tf, out_tf, "effect_sizes_v3.csv", sep="_")
+  sim_eff_sizes_fname <- str_c(exp_tf, out_tf, "effect_sizes_calibrated_v1.csv", sep="_")
   seq_eff_sizes <- 
     read.csv(file.path(params$sim_results_dir, sim_eff_sizes_fname)) %>%
     drop_na()
   n_seqs <- max(seq_eff_sizes$seq_num)
   run_mr(seq_eff_sizes, n_seqs, "egger")
 }
-head(mr_results)
+mr_results
 ```
 
 ```{r}
@@ -168,58 +181,39 @@ cis <- mr_results[c("egger.ciu", "egger.cil")] %>%
 sim_true_ces_fname <- str_c(exp_tf, out_tf, "true_ces.csv", sep="_")
 true_ces <- read.csv(file.path(params$sim_results_dir, sim_true_ces_fname))
 cis$true_val <- true_ces$CI[which(!is.na(cis$"upper"))]
+cis <- cis[!is.na(cis$true_val), ]
 measure_confidence_interval_calibration(cis)
 ```
 
+
 ```{r}
-d <- density(mr_results$"egger.ce")
-ce_smoothed <- ks::kde(
-  x = mr_results$"egger.ce",
-  binned = TRUE,
-  compute.cont = TRUE,
-  xmin = c(min(mr_results$"egger.ce") - 1),
-  xmax = c(max(mr_results$"egger.ce") + 1),
-  bgridsize = c(200)
-)
+p1 <- ces_kde_plot(mr_results$"egger.ce")
+p2 <- ces_kde_plot(cis$true_val[which(!is.na(cis$true_val))])
+ggarrange(p1, p2)
+```
 
-if (params$save_plots) {
-  output_fname <- str_c(exp_tf, out_tf, "ces_kde.png", sep = "_")
-  output_fpath <- file.path(params$output_dir, output_fname)
-  png(output_fpath, width = 512, height = 320)
-  par(mar = c(5, 6, 5, 1) + .1)
-}
-plot(
-  ce_smoothed,
-  xlab = "Causal Effect ( ",
-  main = str_c("Causal Effect Estimates (", exp_tf, " on ", out_tf, ")"),
-  cex.lab = 2,
-  cex.main = 2,
-  ylab = "Density"
-)
-if (params$save_plots) {
-  dev.off()
-}
 
+```{r}
+meta_result <- meta::metagen(mr_results$"egger.ce", mr_results$"egger.std")
+summary(meta_result)
+mean(cis$true_val[which(!is.na(cis$true_val))])
+median(cis$true_val[which(!is.na(cis$true_val))])
 ```
 
 ```{r}
-below_ci_lower_idxs <- which(
-  (cis$true_val < cis$lower)
-)
-above_ci_upper_idxs <- which((cis$true_val > cis$upper))
-above_ci_upper_idxs
-below_ci_lower_idxs
-```
+seq_eff_sizes <- foreach(exp_tf=exp_tfs, out_tf=out_tfs, .combine=cbind) %do% {
+  sim_eff_sizes_fname <- str_c(exp_tf, out_tf, "effect_sizes_calibrated_v1.csv", sep="_")
+  seq_eff_sizes <- 
+    read.csv(file.path(params$sim_results_dir, sim_eff_sizes_fname)) %>%
+    drop_na()
+  return(seq_eff_sizes)
+}
 
-```{r}
-seq_eff_sizes <- 
-  read.csv(file.path(params$sim_results_dir, sim_eff_sizes_fname)) %>%
-  drop_na()
-sample_misclassified_veffs <- subset(seq_eff_sizes, seq_num == 17)
-bxt <- unlist(sample_misclassified_veffs["X_pred_mean"])
-bxset <- unlist(sample_misclassified_veffs["X_pred_var"])
-byt <- unlist(sample_misclassified_veffs["Y_pred_mean"])
-byset <- unlist(sample_misclassified_veffs["Y_pred_var"])
+ex_eff_sizes <- subset(seq_eff_sizes, seq_eff_sizes$seq_num == 100)
+bxt <- unlist(ex_eff_sizes["X_pred_mean"])
+bxset <- unlist(ex_eff_sizes["X_pred_var"])
+byt <- unlist(ex_eff_sizes["Y_pred_mean"])
+byset <- unlist(ex_eff_sizes["Y_pred_var"])
 MRInputObject <- mr_input(
   bx = bxt,
   bxse = bxset,
@@ -227,5 +221,8 @@ MRInputObject <- mr_input(
   byse = byset
 )  
 mr_plot(MRInputObject)
-fit_egger(bxt, bxset, byt, byset)
+AllObject <- mr_egger(MRInputObject)
+AllObject
+MRInputObject
 ```
+

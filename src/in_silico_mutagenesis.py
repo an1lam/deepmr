@@ -124,7 +124,7 @@ def build_deepsea_normalizers(proportions_fpath):
     return normalizers
 
 
-def compute_summary_statistics(preds, seqs):
+def compute_summary_statistics(preds, seqs, lambdas=1):
     """
     Compute summary statistics for predictions.
 
@@ -165,7 +165,7 @@ def compute_summary_statistics(preds, seqs):
                     )
                     covs[seq_idx, nt_pos, seq_pos, col] = cov[0, 1]
 
-    stderrs = np.sqrt(ref_vars + mut_vars - 2 * covs)
+    stderrs = np.sqrt(lambdas * ref_vars + lambdas * mut_vars - 2 * lambdas * covs)
     return means, mean_diffs, stderrs
 
 
