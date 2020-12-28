@@ -1,0 +1,57 @@
+\section{Outline}
+\textbf{Why did I do this work?}
+
+\begin{enumerate}
+	\item Establish confidence in our models by validating they learn the qualitative relationships we're confident exist.
+	\item Identify new potential qualitative relationships to investigate with experiments.
+\end{enumerate}
+
+\textbf{What work relates to ours?}
+\begin{enumerate}
+	\item Build on work applying DL models to epigenomic data. 
+	\item Take a different approach than interpretability work like DeepLIFT analyzing what DL models learn. Tends to focus on individual samples or motifs rather than high-level relationships.
+\end{enumerate}
+
+\textbf{What does our method do?}
+Identify and validate causal relationships learned by genomic DL models.
+
+\textbf{What do our results mean?}
+Finding that our models seem to learn the causal relationships we expect 
+
+\textbf{What hypotheses did we test?} Whether our method could identify the right quantitative and qualitative causal relationships between epigenomic features.
+
+\textbf{What did we learn?}
+
+\textbf{What did/didn't work?}
+In both simulation and real experiments, Deep MR mostly recovers the order of causal relationships but not the exact magnitude.
+
+\textbf{What experiments did we do?}
+
+\textbf{Why does it matter? Why should a reader care?}
+Having a method that can verify genomic DL models learn the causal relationships we know exist would increase our confidence in them. 
+
+\textbf{What work would we do next to expand on this project?}
+
+\pagebreak
+
+\paragraph{Guidance for the reader}
+\subparagraph{Strategy} 
+\subparagraph{Things to look out for}
+\begin{itemize}
+	\item Method's assumptions derived from traditional MR assumptions.
+\end{itemize}
+
+\subsection{Related Work}
+In recent years, many researchers have applied deep learning to achieve impressive results at predicting transcriptomic features such as transcription factor (TF) binding~\cite{alipanahi2015predicting, zhou2015predicting}, chromatin accessibility~\cite{kelley2016basset, zhou2015predicting}, RNA binding protein (RBP) binding~\cite{zheng2018deep, zhang2019deepdrbp, koo2018inferring}, and DNA methylation states~\cite{angermueller2017deepcpg} from sequence and sometimes other auxiliary features. These models' ability to make reliable predictions of transcriptomic features on never-before-seen sequences may allow them to one day guide future investigation while saving valuable and scarce experimenter time. However, little work has been done to try and validate hypothesized causal relationships between phenomena using predictions from these models. 
+
+In this work, we propose combining MR techniques with neural network generated data to test for a hypothesized causal relationship between transcription factor binding and chromatin accessibility. In doing so, we hope to enable trustworthy, interpretable estimates of causal effects, which may one day enable discoveries of new causal relationships from in-silico data. We test our method by estimating the postulated effect of CTCF binding on chromatin accessibility.
+
+\paragraph{Summary}
+\subparagraph{Experiments}
+\begin{itemize}
+	\item Test method on regression model trained on simulated data with known ground truth and simple generative process - two TFs where one's binding causes the other's.
+	\item Applied method to two jointly trained models, one regression (BPNet) and one classification (DeepSEA), from the literature.
+\end{itemize}
+
+\subparagraph{Conclusions}
+
