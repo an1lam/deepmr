@@ -52,7 +52,7 @@ class CalibratedRegressionEnsemble:
         predictions = np.zeros((len(model.models), len(data_loader.dataset), model.n_features))
         ys = np.zeros((len(data_loader.dataset), model.n_features))
         for (i, (x, y)) in enumerate(data_loader):
-            assert len(y) == batch_size
+            assert len(y) == batch_size, f"len(y) = {len(y)} vs. batch size = {batch_size}"
             p = model.predict(x)['predictions']
             predictions[:, i * batch_size: (i + 1) * batch_size, :] = p
             ys[i * batch_size: (i + 1) * batch_size, :] = y.numpy()

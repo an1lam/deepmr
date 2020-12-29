@@ -23,6 +23,11 @@ Train variant data model:
     # Ensemble version
     for i in `seq 1 5`; do mkdir -p ../dat/sim/ensemble/$i/;    python tf_coop_model.py --epochs 50 --n_conv_layers 3 --n_dense_layers 3 --seed $i --train_data_fnames train_labels.csv --train_data_fnames train_variant_labels.csv --model_fname cnn_counts_predictor_with_variants.pt --data_dir ../dat/sim/ --model_fname ensemble/$i/cnn_counts_predictor.pt; done
 
+### E2E version
+Run all Python stuff:
+
+    python tf_coop_main.py --seed 42  --train_sequences 100000 --test_sequences 10000 --variant_augmentation_percentage .25 --log_summary_stats --data_dir ../dat/sim_e2e --epochs 50 --n_conv_layers 3 --n_dense_layers 3 --seed 42 --train_data_fnames train_labels.csv --train_data_fnames train_variant_labels.csv --model_fname cnn_counts_predictor.pt --model_fname cnn_counts_predictor.pt --model_type ensemble --n_reps 10 
+
 ## Local Confounding
 ### Sequence Based
 Generate simulated data:

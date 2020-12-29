@@ -1,4 +1,5 @@
 import argparse
+import copy
 import logging
 import os
 from pathlib import Path
@@ -68,6 +69,16 @@ def add_args(parser):
     )
 
     # Training
+    parser.add_argument(
+        "--model_type",
+        choices=["individual", "ensemble"],
+        default="individual"
+    )
+    parser.add_argument(
+        "--n_reps",
+        type=int,
+        help="Number of ensemble components to train and save. Only used when model_type is 'ensemble'."
+    )
     parser.add_argument(
         "--epochs",
         type=int,
@@ -427,9 +438,21 @@ def train(args):
     # Save the model to a file
     torch.save(model.state_dict(), os.path.join(args.data_dir, args.model_fname))
 
+def main(args):
+    if args.model_type == "individual":
+        train(args)
+    elif args.model_type == "ensemble":
+        assert args.n_reps is not None and args.n_reps > 1
+        for i in range(1, args.n_reps + 1):
+            ensemble_args = copy.deepcopy(args)
+            ensemble_args.seed = i
+            os.makedirs(os.path.join(args.data_dir, "ensemble", str(i)), exist_ok=True)
+            ensemble_args.model_fname = f"ensemble/{i}/{args.model_fname}"
+            train(ensemble_args)
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser = add_args(parser)
     args = parser.parse_args()
-    train(args)
+    main(args)
