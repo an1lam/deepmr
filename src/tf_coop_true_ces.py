@@ -16,6 +16,7 @@ from simdna import synthetic
 from tqdm.auto import tqdm
 
 from in_silico_mutagenesis import generate_wt_mut_batches
+from filter_instrument_candidates import filter_variants_by_score
 from pyx.one_hot import one_hot
 from tf_coop_lib import TF_TO_MOTIF
 from tf_coop_model import (CountsRegressor, IterablePandasDataset,
@@ -43,8 +44,8 @@ def add_args(parser):
     )
     parser.add_argument("--weights_dir", default="../dat/sim/ensemble")
     parser.add_argument("--test_data_fname", default="test_labels.csv")
-
-    parser.add_argument("--results_dir_name", default="res")
+    timestamp = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+    parser.add_argument("--results_dir_name", default=os.path.join("res", timestamp))
 
     parser.add_argument("--sequences_col", default="sequences")
     parser.add_argument(
@@ -78,17 +79,17 @@ def main(args):
     test_data_loader = torch.utils.data.DataLoader(
         test_dataset, batch_size=args.batch_size, num_workers=0
     )
-    both_motifs_df = test_df[(test_df['has_both'] == 1)]
-    exposure_motif_df = test_df[(test_df['has_exposure'] == 1) & (test_df['has_outcome'] == 0)]
-    outcome_motif_df = test_df[(test_df['has_exposure'] == 0) & (test_df['has_outcome'] == 1)]
-    neither_motif_df = test_df[
-        (test_df['has_exposure'] == 0) & (test_df['has_outcome'] == 0)
-    ]
+    # both_motifs_df = test_df[(test_df['has_both'] == 1)]
+    exposure_motif_df = test_df[(test_df['has_exposure'] == 1)]
+    # outcome_motif_df = test_df[(test_df['has_exposure'] == 0) & (test_df['has_outcome'] == 1)]
+    # neither_motif_df = test_df[
+    #     (test_df['has_exposure'] == 0) & (test_df['has_outcome'] == 0)
+    # ]
 
-    both_motifs_dataset = IterablePandasDataset(
-        both_motifs_df, x_cols=args.sequences_col, y_cols=args.label_cols, x_transform=one_hot,
-        y_transform=anscombe_transform,
-    )
+    # both_motifs_dataset = IterablePandasDataset(
+    #     both_motifs_df, x_cols=args.sequences_col, y_cols=args.label_cols, x_transform=one_hot,
+    #     y_transform=anscombe_transform,
+    # )
     exposure_motif_dataset = IterablePandasDataset(
         exposure_motif_df, x_cols=args.sequences_col, y_cols=args.label_cols, x_transform=one_hot,
         y_transform=anscombe_transform
@@ -105,11 +106,11 @@ def main(args):
         return np.array(all_muts)
 
 
-    both_motifs_sample_seqs = [x for x, y in both_motifs_dataset]
+    test_sample_seqs = [x for x, y in test_dataset]
     exposure_motif_sample_seqs = [x for x, y in exposure_motif_dataset]
 
-    sample_seqs = np.array([seq for seq, label in both_motifs_dataset])
-    sample_labels = np.array([label for _, label in both_motifs_dataset])
+    sample_seqs = np.array([seq for seq, label in exposure_motif_dataset])
+    sample_labels = np.array([label for _, label in exposure_motif_dataset])
     sample_muts = mutate(sample_seqs)
 
     motifs = synthetic.LoadedEncodeMotifs(
@@ -165,7 +166,6 @@ def main(args):
         adjusted_mut_labels_ism_no_conf = adjusted_labels_ism_no_conf_anscombe[~seq_idxs].reshape(len(sample_seqs), 3, 100, -1)
         adjusted_diffs_no_conf = adjusted_mut_labels_ism_no_conf - adjusted_ref_labels_ism_no_conf
 
-    from filter_instrument_candidates import filter_variants_by_score
     sig_var_idxs = filter_variants_by_score(adjusted_diffs[:, :, :, args.exposure_col])
     if includes_confounder:
         sig_var_idxs_no_conf = filter_variants_by_score(adjusted_diffs_no_conf[:, :, :, args.exposure_col])
@@ -191,19 +191,18 @@ def main(args):
     if includes_confounder:
         ism_cis_no_conf = [ols_res.params[0] for ols_res in ols_results_no_conf]
 
-    timestamp = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-    output_dir = os.path.join(args.data_dir, args.results_dir_name, timestamp)
-    output_dir = "../dat/sim_e2e/res/2020-12-17-45-01/"
+    results_dir = os.path.join(args.data_dir, args.results_dir_name)
+    os.makedirs(results_dir, exist_ok=True)
 
-    logging.info(f"Saving true CEs to {output_dir}")
-    with open(os.path.join(output_dir, f'{args.exposure_name}_{args.outcome_name}_true_ces.csv'), 'w') as f:
+    logging.info(f"Saving true CEs to {results_dir}")
+    with open(os.path.join(results_dir, f'{args.exposure_name}_{args.outcome_name}_true_ces.csv'), 'w') as f:
         f.write('seq, CI\n')
         for i, ci in enumerate(ism_cis):
             f.write(f'{i}, {ci}\n')
 
     if includes_confounder:
-        os.makedirs(output_dir, exist_ok=True)
-        with open(os.path.join(output_dir, 'GATA_TAL1_true_ces_no_conf.csv'), 'w') as f:
+        os.makedirs(results_dir, exist_ok=True)
+        with open(os.path.join(results_dir, f'{args.exposure_name}_{args.outcome_name}_true_ces_no_conf.csv'), 'w') as f:
             f.write('seq, CI\n')
             for i, ci in enumerate(ism_cis_no_conf):
                 f.write(f'{i}, {ci}\n')

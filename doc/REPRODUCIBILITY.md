@@ -30,6 +30,20 @@ Run all Python stuff:
 
 ## Local Confounding
 ### Sequence Based
+#### E2E version
+Run all Python stuff:
+
+    python tf_coop_main.py --seed 42  --train_sequences 100000 --test_sequences 10000 --variant_augmentation_percentage .25 --log_summary_stats --data_dir ../dat/sim_e2e_conf --epochs 50 --n_conv_layers 3 --n_dense_layers 3 --seed 42 --train_data_fnames train_labels.csv --train_data_fnames train_variant_labels.csv --model_fname cnn_counts_predictor.pt --model_fname cnn_counts_predictor.pt --model_type ensemble --n_reps 10 --confounder_motif SOX2_1
+
+which should produce the following output in the simulation step:
+
+    INFO:root:Training count summary stats: 
+	exposure mean = 72.26, variance = 2521.20 
+	outcome mean = 55.84, variance = 2056.72
+INFO:root:Label counts: 
+	with exposure: 49691, with outcome: 50122, with both: 24938, with confounder motif: 75146
+
+#### Step-by-step
 Generate simulated data:
 
     python tf_coop_simulation.py --seed 42 --log_summary_stats --train_sequences 100000 --test_sequences 10000 --confounder_motif SOX2_1 --data_dir ../dat/sim_conf/ --variant_augmentation_percentage .25

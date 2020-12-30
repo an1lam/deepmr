@@ -1,39 +1,38 @@
 import argparse
 import csv
-from datetime import datetime
 import logging
 import os
+from datetime import datetime
 
-from matplotlib import pyplot as plt
-from IPython.display import clear_output
 import numpy as np
 import pandas as pd
-from scipy import stats
 import seaborn as sns
 import simdna
-from simdna import synthetic
 import statsmodels.api as sm
 import torch
-from tqdm.auto import tqdm, trange
 import uncertainty_toolbox.data as udata
 import uncertainty_toolbox.metrics as umetrics
-from uncertainty_toolbox.metrics_calibration import get_proportion_lists_vectorized
 import uncertainty_toolbox.viz as uviz
+from IPython.display import clear_output
+from matplotlib import pyplot as plt
+from scipy import stats
+from simdna import synthetic
+from tqdm.auto import tqdm, trange
+from uncertainty_toolbox.metrics_calibration import \
+    get_proportion_lists_vectorized
 from uncertainty_toolbox.recalibration import iso_recal
 
-from ensemble import Ensemble, CalibratedRegressionEnsemble
+from ensemble import CalibratedRegressionEnsemble, Ensemble
 from filter_instrument_candidates import filter_variants_by_score
-from in_silico_mutagenesis import (
-    compute_summary_statistics,
-    generate_wt_mut_batches,
-    write_results,
-)
+from in_silico_mutagenesis import (compute_summary_statistics,
+                                   generate_wt_mut_batches, write_results)
 from pyx.one_hot import one_hot
 from tf_coop_lib import TF_TO_MOTIF
-from tf_coop_model import CountsRegressor, IterablePandasDataset
-from tf_coop_model import anscombe_transform, run_one_epoch, spearman_rho, pearson_r
-from tf_coop_simulation import background_frequency
-from tf_coop_simulation import simulate_counts, simulate_oracle_predictions
+from tf_coop_model import (CountsRegressor, IterablePandasDataset,
+                           anscombe_transform, pearson_r, run_one_epoch,
+                           spearman_rho)
+from tf_coop_simulation import (background_frequency, simulate_counts,
+                                simulate_oracle_predictions)
 from utils import one_hot_decode
 
 # %load_ext autoreload
@@ -114,7 +113,8 @@ def add_args(parser):
     parser.add_argument("--weights_dir", default="../dat/sim/ensemble")
     parser.add_argument("--test_data_fname", default="test_labels.csv")
 
-    parser.add_argument("--results_dir_name", default="res")
+    timestamp = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+    parser.add_argument("--results_dir_name", default=os.path.join("res", timestamp))
 
     parser.add_argument("--sequences_col", default="sequences")
     parser.add_argument(
@@ -182,8 +182,7 @@ def write_results(result_fpath, diffs, stderrs, x_col=0, y_col=1, sig_idxs=None)
 
 def main(args):
     # Setup
-    timestamp = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-    results_dir = os.path.join(args.data_dir, args.results_dir_name, timestamp)
+    results_dir = os.path.join(args.data_dir, args.results_dir_name)
     os.makedirs(results_dir, exist_ok=True)
     torch.set_grad_enabled(False)
 
@@ -200,18 +199,31 @@ def main(args):
     test_data_loader = torch.utils.data.DataLoader(
         test_dataset, batch_size=args.batch_size, num_workers=0
     )
-    both_motifs_df = test_df[
-        (test_df["has_exposure"] == 1) & (test_df["has_outcome"] == 1)
+    # both_motifs_df = test_df[
+    #     (test_df["has_exposure"] == 1) & (test_df["has_outcome"] == 1)
+    # ]
+    # both_motifs_dataset = IterablePandasDataset(
+    #     both_motifs_df,
+    #     x_cols=args.sequences_col,
+    #     y_cols=args.label_cols,
+    #     x_transform=one_hot,
+    #     y_transform=anscombe_transform,
+    # )
+    # both_motifs_data_loader = torch.utils.data.DataLoader(
+    #     both_motifs_dataset, batch_size=args.batch_size, num_workers=0
+    # )
+    exposure_motif_df = test_df[
+        (test_df["has_exposure"] == 1)
     ]
-    both_motifs_dataset = IterablePandasDataset(
-        both_motifs_df,
+    exposure_motif_dataset = IterablePandasDataset(
+        exposure_motif_df,
         x_cols=args.sequences_col,
         y_cols=args.label_cols,
         x_transform=one_hot,
         y_transform=anscombe_transform,
     )
-    both_motifs_data_loader = torch.utils.data.DataLoader(
-        both_motifs_dataset, batch_size=args.batch_size, num_workers=0
+    exposure_motif_data_loader = torch.utils.data.DataLoader(
+        exposure_motif_dataset, batch_size=args.batch_size, num_workers=0
     )
 
     params = {
@@ -231,9 +243,9 @@ def main(args):
     )
 
     muts, recal_predictions = mutate_and_predict(
-        calibrated_ensemble_model, both_motifs_dataset
+        calibrated_ensemble_model, exposure_motif_dataset
     )
-    sample_seqs = np.array([seq for seq, label in both_motifs_dataset])
+    sample_seqs = np.array([seq for seq, label in exposure_motif_dataset])
 
     formatted_preds = np.stack(
         (recal_predictions["exposure"], recal_predictions["outcome"])

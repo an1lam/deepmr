@@ -2,15 +2,15 @@
 Simulate transcription factor binding cooperativity data.
 """
 import argparse
-from collections import OrderedDict
 import logging
 import os
+from collections import OrderedDict
 
 import editdistance
-from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
 import simdna
+from matplotlib import pyplot as plt
 from scipy import stats
 from simdna import synthetic
 

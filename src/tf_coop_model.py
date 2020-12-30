@@ -3,14 +3,13 @@ import copy
 import logging
 import os
 from pathlib import Path
-from typing import Tuple
-from typing import Union
+from typing import Tuple, Union
 
 import numpy as np
 import pandas as pd
+import torch
 from scipy import stats
 from sklearn import metrics
-import torch
 from torch import nn
 
 from pyx.one_hot import one_hot

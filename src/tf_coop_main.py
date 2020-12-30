@@ -1,11 +1,13 @@
 import argparse
 import logging
 import os
+from datetime import datetime
 
-from tf_coop_simulation import main as sim_main
-from tf_coop_model import main as model_main
 from tf_coop_in_silico_mutagenesis import main as in_silico_mutagenesis_main
+from tf_coop_model import main as model_main
+from tf_coop_simulation import main as sim_main
 from tf_coop_true_ces import main as true_ces_main
+
 
 def add_args(parser):
     # Simulation
@@ -200,9 +202,9 @@ def add_args(parser):
     # ************************************************************************
     # In silico mutagenesis
     # ************************************************************************
-    # Data
+    timestamp = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+    parser.add_argument("--results_dir_name", default=os.path.join("res", timestamp))
     parser.add_argument("--weights_dir", default="../dat/sim/ensemble")
-    parser.add_argument("--results_dir_name", default="res")
 
     parser.add_argument("--exposure_name", default="GATA", choices=["GATA", "TAL1"])
     parser.add_argument("--outcome_name", default="TAL1", choices=["GATA", "TAL1"])
