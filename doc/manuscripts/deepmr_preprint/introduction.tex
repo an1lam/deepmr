@@ -1,57 +1,35 @@
-\section{Outline}
-\textbf{Why did I do this work?}
+Deep learning models have achieved success predicting many genomic features such as transcription factor (TF) binding \citep{alipanahi2015predicting, zhou2015predicting}, chromatin accessibility \citep{zhou2015predicting, kelley2016basset}, histone marks \citep{yin2019deephistone}, and RNA binding protein (RBP) binding \citep{alipanahi2015predicting, pan2017rna, gandhi2018cdeepbind, zheng2018deep} from genomic sequence. These models achieve high predictive accuracy and recognize sequence features that match those found by orthogonal experiments. In particular, multi-task models such as DeepSEA~\citep{zhou2015predicting} and BPNet~\citep{avsec2020base} can accurately predict multiple genomic features simultaneously. Do such multi-task models, through learning to predict multiple features jointly, gain an implicit understanding of mechanistic, causal relationships between features?
 
-\begin{enumerate}
-	\item Establish confidence in our models by validating they learn the qualitative relationships we're confident exist.
-	\item Identify new potential qualitative relationships to investigate with experiments.
-\end{enumerate}
+We attempt to answer this question by developing Deep Mendelian Randomization (\method), a method that can identify causal relationships in the presence of potential unobserved confounding. \method\ combines \textit{in silico} mutagenesis with Mendelian randomization \citep{lawlor2008mendelian}, an instrumental variable approach for causal inference, to estimate learned causal effects in genomic deep learning models. \method\ obtains local (sequence level) and global (genome level) estimates of (an assumed) linear causal relationship between pairs of features learned by a multi-task genomic prediction model.
 
-\textbf{What work relates to ours?}
-\begin{enumerate}
-	\item Build on work applying DL models to epigenomic data. 
-	\item Take a different approach than interpretability work like DeepLIFT analyzing what DL models learn. Tends to focus on individual samples or motifs rather than high-level relationships.
-\end{enumerate}
-
-\textbf{What does our method do?}
-Identify and validate causal relationships learned by genomic DL models.
-
-\textbf{What do our results mean?}
-Finding that our models seem to learn the causal relationships we expect 
-
-\textbf{What hypotheses did we test?} Whether our method could identify the right quantitative and qualitative causal relationships between epigenomic features.
-
-\textbf{What did we learn?}
-
-\textbf{What did/didn't work?}
-In both simulation and real experiments, Deep MR mostly recovers the order of causal relationships but not the exact magnitude.
-
-\textbf{What experiments did we do?}
-
-\textbf{Why does it matter? Why should a reader care?}
-Having a method that can verify genomic DL models learn the causal relationships we know exist would increase our confidence in them. 
-
-\textbf{What work would we do next to expand on this project?}
-
-\pagebreak
-
-\paragraph{Guidance for the reader}
-\subparagraph{Strategy} 
-\subparagraph{Things to look out for}
-\begin{itemize}
-	\item Method's assumptions derived from traditional MR assumptions.
-\end{itemize}
+We tested \method\ in three experiments. In the first experiment, we simulated data based on a model of directional cooperativity between TFs and tested whether \method\ could recover the causal relationship between the two TFs. \method\ gave good estimates of the `true' global causal effect but didn't perform as well at estimating sequence-region level causal effects. Therefore, in the second and third experiments, we used \method\ to examine what global relationships between features two published models, BPNet~\citep{avsec2020base} and DeepSEA~\citep{zhou2015predicting}, learn. In the BPNet experiment, \method\ reproduced the paper's finding that 2 of the 4 TFs modeled strongly influence each others' and the two other TFs' binding but not the reverse. In the DeepSEA experiment, \method\ \dots
 
 \subsection{Related Work}
-In recent years, many researchers have applied deep learning to achieve impressive results at predicting transcriptomic features such as transcription factor (TF) binding~\cite{alipanahi2015predicting, zhou2015predicting}, chromatin accessibility~\cite{kelley2016basset, zhou2015predicting}, RNA binding protein (RBP) binding~\cite{zheng2018deep, zhang2019deepdrbp, koo2018inferring}, and DNA methylation states~\cite{angermueller2017deepcpg} from sequence and sometimes other auxiliary features. These models' ability to make reliable predictions of transcriptomic features on never-before-seen sequences may allow them to one day guide future investigation while saving valuable and scarce experimenter time. However, little work has been done to try and validate hypothesized causal relationships between phenomena using predictions from these models. 
+Our work draws on four threads of work spanning machine learning and statistical genetics.
 
-In this work, we propose combining MR techniques with neural network generated data to test for a hypothesized causal relationship between transcription factor binding and chromatin accessibility. In doing so, we hope to enable trustworthy, interpretable estimates of causal effects, which may one day enable discoveries of new causal relationships from in-silico data. We test our method by estimating the postulated effect of CTCF binding on chromatin accessibility.
+\subsubsection{Deep Learning for Functional Genomics}%
+Functional genomics research maps sequence-to-function relationships between genotype and molecular phenotypes by leveraging large-scale observational data from high-throughput assays such as ChIP-seq, DNase-seq, and ATAC-seq. Understanding this mapping enables better understanding of epigenomic regulation and more accurate prediction of downstream traits. However, achieving this goal requires decoding complex relationships between high-dimensional genomic sequence inputs and interrelated outputs from large, noisy datasets. Encouraged by deep learning models' ability to overcome similar challenges in the fields of computer vision and natural language processing, genomics researchers have trained deep learning models on functional genomics datasets with moderate success. 
 
-\paragraph{Summary}
-\subparagraph{Experiments}
-\begin{itemize}
-	\item Test method on regression model trained on simulated data with known ground truth and simple generative process - two TFs where one's binding causes the other's.
-	\item Applied method to two jointly trained models, one regression (BPNet) and one classification (DeepSEA), from the literature.
-\end{itemize}
+Early work on deep learning for functional genomics proved that deep learning models could predict sequence-to-function relationships accurately and showed their promise for identifying trait-associated variants. DeepBind \citep{alipanahi2015predicting}, one of the earliest deep learning sequence-to-function classification models, outperformed then state-of-the-art models at predicting TF binding and RBP binding from sequence. DeepBind and other classification models -- e.g. DeepSEA~\citep{zhou2015predicting} and Basset~\citep{kelley2016basset} -- also performed well at classifying and annotating trait-associated variants using their own predictions, identifying variants with higher accuracy than existing methods. More recent work has applied deep learning models to deepening understanding by decoding epigenomic regulatory logic. \cite{avsec2020base} trained a regression model, BPNet, to predict 4 TFs and used it to dissect the motif-based regulatory logic that governs the binding of these TFs. Together, these papers illustrate the promise of deep learning models for not only predicting function from sequence but also improving our understanding of epigenomic regulation and ability to anticipate disease risk. In our work, we seek evidence that genomic deep learning models learn the high-level relationships between features we expect them to, thereby increasing confidence in their capabilities. 
 
-\subparagraph{Conclusions}
+\subsubsection{Model Interpretability}%
+\label{ssub:model_interpretability}
+Local interpretation methods characterize how specific input (sequence) features influence predictions and in some cases, intermediate layer activations (e.g., saliency maps \citep{simonyan2013deep}, guided back-propagation \citep{springenberg2014striving}, DeepLIFT \citep{shrikumar2017learning}, and DeepSHAP \citep{lundberg2017unified}). Even DeepLIFT, which was designed with genomic deep learning in mind, focuses on interpreting individual model predictions for a single output rather than discovering relationships between outputs and is therefore complementary to our work.
 
+Saturation \emph{in silico} mutagenesis characterizes how a model's predictions for an input change as a result of all possible point mutations to the input. Saturation mutagenesis has been used to assess the learned representations of genomic deep learning models such as DeepBind \citep{alipanahi2015predicting}, cDeepBind \citep{gandhi2018cdeepbind}, DeepSEA \citep{zhou2015predicting}, and Basset \citep{kelley2016basset}. Here, we use saturation mutagenesis (combined with MC-dropout \citep{gal2016dropout}, see Section \ref{sec:dl_uncertainty}) to generate a set of estimated variant \textit{effect sizes} which we then provide as input to Mendelian randomization.
+
+\subsubsection{Uncertainty Estimates and Calibration of Deep Learning Models}
+
+\subsubsection{Mendelian Randomization}
+Mendelian randomization (MR) is a technique for estimating linear causal effects in the presence of potential unobserved confounders. MR is an instrumental variable method where the instrument(s) are genetic variants. While MR is typically used to estimate inter-phenotype causal effects from population-scale observational data (i.e., genome-wide association studies, GWAS), here we explore its application to estimating causal effects implied by model-generated data.
+
+\paragraph{Mendelian Randomization Assumptions}
+\label{par:rel_work_mr_assumptions}
+MR only produces valid causal effect estimates under the following assumptions (Figure \ref{fig:model_overview} under \underline{Estimate}) \cite{lawlor2008mendelian}. Let $ Z $ be a variable we intend to use as an instrument (a genetic variant for example), $ X $ a purported cause (\textit{exposure}), and $ Y $ a purported effect (\textit{outcome}), and suppose that there may be unobserved confounding between $ X $ and $ Y $, denoted by $ U $. Then, MR gives an unbiased estimate of the causal effect of $X$ on $Y$ if:
+\begin{enumerate}
+    \item \textbf{Unconfoundedness}: $ Z $ is independent of $ U $, \label{item:mr_ass_1}
+    \item $ Z $ is not independent of $ X $,  and \label{item:mr_ass_2}
+    \item \textbf{Exclusion Restriction}: $ Z $ only influences $ Y $ through $ X $. \label{item:mr_ass_3}
+\end{enumerate}
+
+Recently developed MR methods such as Robust Adjusted Profile Score \cite{zhao2018statistical}, MR-Egger \cite{bowden2015mendelian}, and the modal-based estimator \cite{burgess2018modal} leverage multiple instruments to relax some of these assumptions without compromising the validity of results. In this work, we estimate causal effects using a robust variant of MR-Egger with the goal of being robust to invalid instruments.
