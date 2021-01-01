@@ -5,7 +5,7 @@ date: "11/16/2020"
 output: html_document
 params:
   # sim_results_dir: "../../dat/sim_e2e/res/2020-12-30-15-53-56"
-  sim_results_dir: "../../dat/sim_e2e_conf/res/2020-12-30-19-37-17"
+  # sim_results_dir: "../../dat/sim_e2e_conf/res/2020-12-30-19-37-17"
   sim_results_dir: "../../dat/sim_e2e_prob_conf/res/2020-12-31-16-21-29"
   # output_dir: "../../dat/sim_e2e/res/2020-12-30-15-53-56/fig/"
   # output_dir: "../../dat/sim_e2e_conf/res/2020-12-30-19-37-17/fig"
