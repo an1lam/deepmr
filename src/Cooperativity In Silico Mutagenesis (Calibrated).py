@@ -1,52 +1,63 @@
-import argparse
-import csv
-import logging
-import os
-from datetime import datetime
+# ---
+# jupyter:
+#   jupytext:
+#     text_representation:
+#       extension: .py
+#       format_name: light
+#       format_version: '1.5'
+#       jupytext_version: 1.7.1
+#   kernelspec:
+#     display_name: Python 3
+#     language: python
+#     name: python3
+# ---
 
+# +
+import csv
+import os
+
+from matplotlib import pyplot as plt
+from IPython.display import clear_output
 import numpy as np
 import pandas as pd
+from scipy import stats
 import seaborn as sns
 import simdna
+from simdna import synthetic
 import statsmodels.api as sm
 import torch
+from tqdm.auto import tqdm, trange
 import uncertainty_toolbox.data as udata
 import uncertainty_toolbox.metrics as umetrics
+from uncertainty_toolbox.metrics_calibration import (
+    get_proportion_lists_vectorized,
+)
 import uncertainty_toolbox.viz as uviz
-from IPython.display import clear_output
-from matplotlib import pyplot as plt
-from scipy import stats
-from simdna import synthetic
-from tqdm.auto import tqdm, trange
-from uncertainty_toolbox.metrics_calibration import \
-    get_proportion_lists_vectorized
 from uncertainty_toolbox.recalibration import iso_recal
 
-from ensemble import CalibratedRegressionEnsemble, Ensemble
+from ensemble import Ensemble, CalibratedRegressionEnsemble
 from filter_instrument_candidates import filter_variants_by_score
-from in_silico_mutagenesis import (compute_summary_statistics,
-                                   generate_wt_mut_batches, write_results)
+from in_silico_mutagenesis import compute_summary_statistics, generate_wt_mut_batches, write_results
 from pyx.one_hot import one_hot
-from tf_coop_lib import TF_TO_MOTIF
-from tf_coop_model import (CountsRegressor, IterablePandasDataset,
-                           anscombe_transform, pearson_r, run_one_epoch,
-                           spearman_rho)
-from tf_coop_simulation import (background_frequency, simulate_counts,
-                                simulate_oracle_predictions)
+from tf_coop_model import CountsRegressor, IterablePandasDataset
+from tf_coop_model import anscombe_transform, run_one_epoch, spearman_rho, pearson_r
+from tf_coop_simulation import background_frequency
+from tf_coop_simulation import simulate_counts, simulate_oracle_predictions
 from utils import one_hot_decode
 
 # %load_ext autoreload
 # %autoreload 2
 
-
 def add_args(parser):
     parser.add_argument(
-        "--seed", type=int, help="Random seed value to override the default with."
+        "--seed",
+        type=int,
+        help="Random seed value to override the default with."
     )
     parser.add_argument(
         "--n_conv_layers",
         type=int,
-        default=3,
+        default=1,
         help="Number of convolutional layers to use",
     )
     parser.add_argument(
@@ -81,12 +92,6 @@ def add_args(parser):
         help="(Optional) type of pooling to use after each convolutional layer",
     )
     parser.add_argument(
-        "--sequence_length",
-        type=int,
-        default=100,
-        help="Length of DNA sequences being used as input to the model",
-    )
-    parser.add_argument(
         "--model_fname",
         default="cnn_counts_predictor.pt",
         help="Name of the file to save the trained model to. Typically should have .pt or .pth extension.",
@@ -94,8 +99,7 @@ def add_args(parser):
     parser.add_argument(
         "--n_reps",
         type=int,
-        default=5,
-        help="Number of ensemble components to train and save. Only used when model_type is 'ensemble'.",
+        help="Number of ensemble components to train and save. Only used when model_type is 'ensemble'."
     )
     parser.add_argument(
         "--batch_size",
@@ -110,24 +114,42 @@ def add_args(parser):
         default="../dat/sim/",
         help="Path to directory from/to which to read/write data.",
     )
-    parser.add_argument("--weights_dir", default="../dat/sim/ensemble")
-    parser.add_argument("--test_data_fname", default="test_labels.csv")
-
-    timestamp = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-    parser.add_argument("--results_dir_name", default=os.path.join("res", timestamp))
-
-    parser.add_argument("--sequences_col", default="sequences")
     parser.add_argument(
-        "--label_cols", default=["labels_exp", "labels_out"], nargs=2,
+        "--weights_dir",
+        default="../dat/sim/ensemble"
     )
-    parser.add_argument("--exposure_name", default="GATA", choices=["GATA", "TAL1"])
-    parser.add_argument("--outcome_name", default="TAL1", choices=["GATA", "TAL1"])
+    parser.add_argument(
+        "--weights_fname",
+        default="cnn_counts_predictor.pt"
+    )
+    parser.add_argument(
+        "--test_data_fname",
+        default="test_labels.csv"
+    )
+
+    parser.add_argument(
+        "--results_dir",
+        default="../data/sim/res"
+    )
+
+    parser.add_argument(
+        "--sequences_col",
+        default="sequences"
+    )
+    parser.add_argument(
+        "--label_cols",
+        default=["labels_exp", "labels_out"],
+        nargs=2,
+    )
+    parser.add_argument( "--exposure_name", default="GATA", choices=["GATA", "TAL1"])
+    parser.add_argument( "--outcome_name", default="TAL1", choices=["GATA", "TAL1"])
     parser.add_argument("--confounder_motif", choices=["SOX2_1"])
     return parser
 
+TF_TO_MOTIF = {"GATA": "GATA_disc1", "TAL1": "TAL1_known1"}
 
 
-def mutate_and_predict(model, sample_dataset, predictions_key="recal_predictions"):
+def mutate_and_predict(model, sample_dataset, predictions_key = 'recal_predictions'):
     preds = {}
     all_muts = []
     for seq, label in tqdm(sample_dataset):
@@ -139,8 +161,8 @@ def mutate_and_predict(model, sample_dataset, predictions_key="recal_predictions
         preds_np = outputs[predictions_key]
         exposure_preds = preds_np[:, :, 0]
         outcome_preds = preds_np[:, :, 1]
-        preds.setdefault("exposure", []).append(exposure_preds)
-        preds.setdefault("outcome", []).append(outcome_preds)
+        preds.setdefault('exposure', []).append(exposure_preds)
+        preds.setdefault('outcome', []).append(outcome_preds)
         all_muts.append(muts.detach().cpu().numpy())
     return all_muts, preds
 
@@ -155,7 +177,7 @@ def write_results(result_fpath, diffs, stderrs, x_col=0, y_col=1, sig_idxs=None)
     ]
     if sig_idxs is None:
         sig_idxs = np.full(diffs.shape, True, dtype=bool)
-
+    
     with open(result_fpath, "w", newline="") as out_file:
         writer = csv.DictWriter(out_file, delimiter=",", fieldnames=fieldnames)
         writer.writeheader()
@@ -182,36 +204,25 @@ def write_results(result_fpath, diffs, stderrs, x_col=0, y_col=1, sig_idxs=None)
 
 def main(args):
     # Setup
-    results_dir = os.path.join(args.data_dir, args.results_dir_name)
-    os.makedirs(results_dir, exist_ok=True)
+    os.makedirs(args.results_dir, exist_ok=True)
     torch.set_grad_enabled(False)
 
     # Loading data
-    test_data_fpath = os.path.join(args.data_dir, args.test_data_fname)
-    test_df = pd.read_csv(test_data_fpath)
+    test_df = pd.read_csv(args.test_data_fpath)
     test_dataset = IterablePandasDataset(
-        test_df,
-        x_cols=args.sequences_col,
-        y_cols=args.label_cols,
-        x_transform=one_hot,
-        y_transform=anscombe_transform,
+        test_df, x_cols=args.sequences_col, y_cols=args.label_cols, x_transform=one_hot,
+        y_transform=anscombe_transform
     )
     test_data_loader = torch.utils.data.DataLoader(
-        test_dataset, batch_size=args.batch_size, num_workers=0
+        test_dataset, batch_size=batch_size, num_workers=0
     )
-
-    exposure_motif_df = test_df[
-        (test_df["has_exposure"] == 1)
-    ]
-    exposure_motif_dataset = IterablePandasDataset(
-        exposure_motif_df,
-        x_cols=args.sequences_col,
-        y_cols=args.label_cols,
-        x_transform=one_hot,
-        y_transform=anscombe_transform,
+    both_motifs_df = test_df[(test_df['has_exposure'] == 1) & (test_df['has_outcome'] == 1)]
+    both_motifs_dataset = IterablePandasDataset(
+        both_motifs_df, x_cols=args.sequences_col, y_cols=args.label_cols, x_transform=one_hot,
+        y_transform=anscombe_transform
     )
-    exposure_motif_data_loader = torch.utils.data.DataLoader(
-        exposure_motif_dataset, batch_size=args.batch_size, num_workers=0
+    both_motifs_data_loader = torch.utils.data.DataLoader(
+        both_motifs_dataset, batch_size=batch_size, num_workers=0
     )
 
     params = {
@@ -221,61 +232,39 @@ def main(args):
         "sequence_length": args.sequence_length,
         "filters": args.filters,
         "filter_width": args.filter_width,
-        "dense_layer_width": args.dense_layer_width,
+        "dense_layer_width": args.dense_layer_width
     }
-    ensemble_model = Ensemble(
-        args.weights_dir, args.model_fname, params, n_reps=args.n_reps
-    )
-    calibrated_ensemble_model = CalibratedRegressionEnsemble(
-        ensemble_model, test_data_loader
-    )
+    ensemble_model = Ensemble(args.weights_dir, args.model_fname, params, n_reps=args.n_reps)
+    calibrated_ensemble_model = CalibratedRegressionEnsemble(ensemble_model, test_data_loader)
+
 
     muts, recal_predictions = mutate_and_predict(
-        calibrated_ensemble_model, exposure_motif_dataset
+        calibrated_ensemble_model, both_motifs_dataset 
     )
-    sample_seqs = np.array([seq for seq, label in exposure_motif_dataset])
+    sample_seqs = np.array([seq for seq, label in both_motifs_sample_dataset])
 
-    formatted_preds = np.stack(
-        (recal_predictions["exposure"], recal_predictions["outcome"])
-    )
+    formatted_preds = np.stack((recal_predictions["exposure"], recal_predictions["outcome"]))
     n_features, n_seqs, n_reps, n_variants = formatted_preds.shape
     formatted_preds = formatted_preds.transpose(2, 1, 3, 0)
     formatted_preds = formatted_preds.reshape(n_reps, n_seqs, 4, -1, n_features)
 
-    means, mean_diffs, stderrs = compute_summary_statistics(
-        formatted_preds, np.array(sample_seqs)
-    )
+    means, mean_diffs, stderrs = compute_summary_statistics(formatted_preds, np.array(sample_seqs))
 
     np.save(
-        os.path.join(
-            results_dir, f"{args.exposure_name}_{args.outcome_name}_means_calibrated.npy"
-        ),
-        means,
+        os.path.join(results_dir, f"{exposure_name}_{outcome_name}_means_calibrated_v2.npy"), 
+        means
     )
     np.save(
-        os.path.join(
-            results_dir, f"{args.exposure_name}_{args.outcome_name}_stderrs_calibrated.npy"
-        ),
-        stderrs,
+        os.path.join(results_dir, f"{exposure_name}_{outcome_name}__stderrs_calibrated_v2.npy"),
+        stderrs
     )
 
     sig_var_idxs = filter_variants_by_score(mean_diffs[:, :, :, 0])
-    logging.info(
-        "Reduced number of instruments down from %d to %d (%.2f %%)"
-        % (
-            np.prod(mean_diffs.shape),
-            len(np.nonzero(sig_var_idxs)[0]),
-            float(len(np.nonzero(sig_var_idxs)[0]) / np.prod(mean_diffs.shape)) * 100,
-        )
+    print(
+        "Reduced number of instruments down from %d to %d (%.2f %%)" % 
+        (np.prod(mean_diffs.shape), len(np.nonzero(sig_var_idxs)[0]), 
+         float(len(np.nonzero(sig_var_idxs)[0]) / np.prod(mean_diffs.shape)) * 100)
     )
-    results_fname = f"{args.exposure_name}_{args.outcome_name}_mr_inputs_calibrated.csv"
+    results_fname = f'{exposure_name}_{outcome_name}_effect_sizes_calibrated_v2.csv'
     results_fpath = os.path.join(results_dir, results_fname)
-    write_results(results_fpath, mean_diffs, stderrs, sig_idxs=sig_var_idxs)
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser = add_args(parser)
-    args = parser.parse_args()
-    main(args)
+    write_results(results_fpath, mean_diffs, stderrs, sig_idxs = sig_var_idxs)

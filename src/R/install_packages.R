@@ -15,7 +15,9 @@ install.packages("tidyverse")
 install.packages("dplyr")
 
 # 3rd party packages
+install.packages("doSNOW")
 install.packages("MendelianRandomization")
+install.packages("mr.raps")
 install.packages("ks")
 install.packages("ggplot2")
 install.packages("stringr")

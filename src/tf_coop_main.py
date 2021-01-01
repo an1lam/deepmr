@@ -6,7 +6,7 @@ from datetime import datetime
 from tf_coop_in_silico_mutagenesis import main as in_silico_mutagenesis_main
 from tf_coop_model import main as model_main
 from tf_coop_simulation import main as sim_main
-from tf_coop_true_ces import main as true_ces_main
+from tf_coop_true_ces_v2 import main as true_ces_main
 
 
 def add_args(parser):
@@ -80,6 +80,7 @@ def add_args(parser):
         default="test_labels.csv",
         help="Name of the file to which test sequences and labels will be saved",
     )
+    parser.add_argument("--test_simdata_fname", default="test_sequences.simdata")
     parser.add_argument(
         "--train_variant_data_fname",
         default="train_variant_labels.csv",

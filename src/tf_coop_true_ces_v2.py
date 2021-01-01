@@ -44,6 +44,7 @@ def add_args(parser):
     )
     parser.add_argument("--weights_dir", default="../dat/sim/ensemble")
     parser.add_argument("--test_data_fname", default="test_labels.csv")
+    parser.add_argument("--test_simdata_fname", default="test_sequences.simdata")
     timestamp = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
     parser.add_argument("--results_dir_name", default=os.path.join("res", timestamp))
 
@@ -53,14 +54,66 @@ def add_args(parser):
     )
     parser.add_argument("--exposure_name", default="GATA", choices=["GATA", "TAL1"])
     parser.add_argument("--outcome_name", default="TAL1", choices=["GATA", "TAL1"])
-    parser.add_argument("--confounder_motif", choices=["SOX2_1"])
+    parser.add_argument(
+        "--confounder_motif",
+        default=None,
+        help="Name of motif for TF whose presence acts as a confounder in the simulation.",
+    )
+    parser.add_argument(
+        "--confounder_prob",
+        type=float,
+        default=0.0,
+        help="Probability of adding a non-sequence-based confounding scalar value to both the exposure and the outcome counts",
+    )
 
     parser.add_argument("--exposure_col", type=int, default=0)
     parser.add_argument("--outcome_col", type=int, default=1)
     return parser
 
 
+def simdata_to_start_pos_df(simdata, exposure_motif, outcome_motif, confounder_motif=None):
+    sequences = simdata.sequences
+    embeddings = simdata.embeddings
+    name_to_type = {
+        exposure_motif: ('exposure_start_pos', 'exposure_end_pos'),
+        outcome_motif: ('outcome_start_pos', 'outcome_end_pos'),
+    }
+    if confounder_motif is not None:
+        name_to_type[confounder_motif] = ('confounder_start_pos', 'confounder_end_pos')
+    motif_range_by_type = {
+        'sequences': simdata.sequences,
+        'exposure_start_pos': -1 * np.ones(len(embeddings), dtype=np.int),
+        'outcome_start_pos': -1 * np.ones(len(embeddings), dtype=np.int),
+        'confounder_start_pos': -1 * np.ones(len(embeddings), dtype=np.int),
+        'exposure_end_pos': -1 * np.ones(len(embeddings), dtype=np.int),
+        'outcome_end_pos': -1 * np.ones(len(embeddings), dtype=np.int),
+        'confounder_end_pos': -1 * np.ones(len(embeddings), dtype=np.int)
+    }
+    for i, seq_embeds in enumerate(embeddings):
+        for seq_embed in seq_embeds:
+            keys = name_to_type[seq_embed.what.getDescription()]
+            motif_len = len(seq_embed.what.string)
+            motif_range_by_type[keys[0]][i] = int(seq_embed.startPos)
+            motif_range_by_type[keys[1]][i] = int(seq_embed.startPos) + motif_len
+    return pd.DataFrame(motif_range_by_type)
+
+
+def mutate(seqs, start_pos, end_pos):
+    preds = {}
+    all_muts = []
+    seq_fragments = [seq[:, start_pos[i]: end_pos[i]] for i, seq in enumerate(seqs)]
+    for i, seq_frag in enumerate(tqdm(seq_fragments)):
+        start, end = start_pos[i], end_pos[i]
+        muts = generate_wt_mut_batches(seq_frag, seq_frag.shape[0] * seq_frag.shape[1]).squeeze()
+        prefixes = np.repeat(np.expand_dims(seqs[i, :, :start], axis=0), len(muts), axis=0)
+        suffixes = np.repeat(np.expand_dims(seqs[i, :, end:], axis=0), len(muts), axis=0)
+        new_seqs = np.concatenate((prefixes, muts, suffixes), axis=2)
+        all_muts.append(new_seqs)
+    return np.array(all_muts)
+
+
 def main(args):
+    torch.set_grad_enabled(False)
     if args.seed is not None:
         np.random.seed(args.seed)
 
@@ -68,50 +121,37 @@ def main(args):
     outcome_motif = TF_TO_MOTIF[args.outcome_name]
 
     test_data_fpath = os.path.join(args.data_dir, args.test_data_fname)
+    raw_simulation_data_fpath = os.path.join(args.data_dir, args.test_simdata_fname)
     includes_confounder = (args.confounder_motif is not None) or (args.confounder_prob > 0)
 
-    torch.set_grad_enabled(False)
+    simdata = synthetic.read_simdata_file(raw_simulation_data_fpath )
+    start_pos_df = simdata_to_start_pos_df(simdata, exposure_motif, outcome_motif, confounder_motif=args.confounder_motif)
+    start_pos_df.head()
 
     test_df = pd.read_csv(test_data_fpath)
+    test_df = pd.merge(test_df, start_pos_df, on="sequences")
+
     test_dataset = IterablePandasDataset(
         test_df, x_cols=args.sequences_col, y_cols=args.label_cols, x_transform=one_hot,
     )
     test_data_loader = torch.utils.data.DataLoader(
         test_dataset, batch_size=args.batch_size, num_workers=0
     )
-    # both_motifs_df = test_df[(test_df['has_both'] == 1)]
     exposure_motif_df = test_df[(test_df['has_exposure'] == 1)]
-    # outcome_motif_df = test_df[(test_df['has_exposure'] == 0) & (test_df['has_outcome'] == 1)]
-    # neither_motif_df = test_df[
-    #     (test_df['has_exposure'] == 0) & (test_df['has_outcome'] == 0)
-    # ]
-
-    # both_motifs_dataset = IterablePandasDataset(
-    #     both_motifs_df, x_cols=args.sequences_col, y_cols=args.label_cols, x_transform=one_hot,
-    #     y_transform=anscombe_transform,
-    # )
     exposure_motif_dataset = IterablePandasDataset(
         exposure_motif_df, x_cols=args.sequences_col, y_cols=args.label_cols, x_transform=one_hot,
         y_transform=anscombe_transform
     )
-
-    def mutate(seqs):
-        preds = {}
-        all_muts = []
-        for seq in tqdm(seqs):
-            muts = generate_wt_mut_batches(seq, seq.shape[0] * seq.shape[1]).squeeze()
-            muts = muts.transpose(0, 1, 2)
-            all_muts.append(muts)
-            
-        return np.array(all_muts)
-
 
     test_sample_seqs = [x for x, y in test_dataset]
     exposure_motif_sample_seqs = [x for x, y in exposure_motif_dataset]
 
     sample_seqs = np.array([seq for seq, label in exposure_motif_dataset])
     sample_labels = np.array([label for _, label in exposure_motif_dataset])
-    sample_muts = mutate(sample_seqs)
+    sample_ranges = exposure_motif_df[['exposure_start_pos', 'exposure_end_pos']].values
+    start_pos, end_pos = sample_ranges[:, args.exposure_col], sample_ranges[:, args.outcome_col]
+    sample_seq_fragments = [seq[:, start_pos[i]: end_pos[i]] for i, seq in enumerate(sample_seqs)]
+    sample_muts = mutate(sample_seqs, start_pos, end_pos)
 
     motifs = synthetic.LoadedEncodeMotifs(
         simdna.ENCODE_MOTIFS_PATH, pseudocountProb=0.001
@@ -128,68 +168,29 @@ def main(args):
             [one_hot_decode(mut) for mut in muts],
             exposure_pwm,
             outcome_pwm,
-            confounder_pwm=confounder_pwm,
+            confounder_pwm=None
         )
         adjusted_labels_ism.append(adjusted_labels_)
 
-    np.array(adjusted_labels_ism).shape
-
-    adjusted_labels_ism_no_conf = []
-    if includes_confounder:
-        for i, muts in enumerate(tqdm(sample_muts)):
-            adjusted_labels_ = simulate_oracle_predictions(
-                [one_hot_decode(mut) for mut in muts],
-                exposure_pwm,
-                outcome_pwm,
-            )
-            adjusted_labels_ism_no_conf.append(adjusted_labels_)
-
+    fragment_length = end_pos[0] - start_pos[0]
+    assert np.allclose(fragment_length, end_pos - start_pos)
     adjusted_labels_ism = np.array(adjusted_labels_ism)
     adjusted_labels_ism = adjusted_labels_ism.transpose((0, 2, 1))
-    adjusted_labels_ism = np.array(adjusted_labels_ism).reshape(len(sample_seqs), 4, 100, -1)
+    adjusted_labels_ism = np.array(adjusted_labels_ism).reshape(len(sample_seqs), 4, fragment_length, -1)
     adjusted_labels_ism_anscombe = anscombe_transform(adjusted_labels_ism)
-
-    if includes_confounder:
-        adjusted_labels_ism_no_conf = np.array(adjusted_labels_ism_no_conf)
-        adjusted_labels_ism_no_conf = adjusted_labels_ism_no_conf.transpose((0, 2, 1))
-        adjusted_labels_ism_no_conf = np.array(adjusted_labels_ism_no_conf).reshape(len(sample_seqs), 4, 100, -1)
-        adjusted_labels_ism_no_conf_anscombe = anscombe_transform(adjusted_labels_ism_no_conf)
-
-    seq_idxs = np.array(sample_seqs).astype(np.bool)
-    adjusted_ref_labels_ism = adjusted_labels_ism_anscombe[seq_idxs].reshape(len(sample_seqs), 1, 100, -1)
-    adjusted_mut_labels_ism = adjusted_labels_ism_anscombe[~seq_idxs].reshape(len(sample_seqs), 3, 100, -1)
+    seq_idxs = np.array(sample_seq_fragments).astype(np.bool)
+    adjusted_ref_labels_ism = adjusted_labels_ism_anscombe[seq_idxs].reshape(len(sample_seqs), 1, fragment_length, -1)
+    adjusted_mut_labels_ism = adjusted_labels_ism_anscombe[~seq_idxs].reshape(len(sample_seqs), 3, fragment_length, -1)
     adjusted_diffs = adjusted_mut_labels_ism - adjusted_ref_labels_ism
-
-    if includes_confounder:
-        seq_idxs = np.array(sample_seqs).astype(np.bool)
-        adjusted_ref_labels_ism_no_conf = adjusted_labels_ism_no_conf_anscombe[seq_idxs].reshape(len(sample_seqs), 1, 100, -1)
-        adjusted_mut_labels_ism_no_conf = adjusted_labels_ism_no_conf_anscombe[~seq_idxs].reshape(len(sample_seqs), 3, 100, -1)
-        adjusted_diffs_no_conf = adjusted_mut_labels_ism_no_conf - adjusted_ref_labels_ism_no_conf
-
-    sig_var_idxs = filter_variants_by_score(adjusted_diffs[:, :, :, args.exposure_col])
-    if includes_confounder:
-        sig_var_idxs_no_conf = filter_variants_by_score(adjusted_diffs_no_conf[:, :, :, args.exposure_col])
 
     ols_results = []
     for i in range(len(sample_seqs)):
-        if adjusted_diffs[i, sig_var_idxs[i, :, :], args.exposure_col].shape[0] > 0:
-            x = adjusted_diffs[i, sig_var_idxs[i, :, :], args.exposure_col + 2].flatten()
-            y = adjusted_diffs[i, sig_var_idxs[i, :, :], args.outcome_col + 2].flatten()
-            ols_res = sm.OLS(y, x).fit()
-            ols_results.append(ols_res)
-
-    if includes_confounder:
-        ols_results_no_conf = []
-        for i in range(len(sample_seqs)):
-            if adjusted_diffs_no_conf[i, sig_var_idxs_no_conf[i, :, :], args.exposure_col ].shape[0] > 0:
-                x = adjusted_diffs_no_conf[i, sig_var_idxs_no_conf[i, :, :], args.exposure_col + 2].flatten()
-                y = adjusted_diffs_no_conf[i, sig_var_idxs_no_conf[i, :, :], args.outcome_col + 2].flatten()
-                ols_res = sm.OLS(y, x).fit()
-                ols_results_no_conf.append(ols_res)
+        x = adjusted_diffs[i, :, args.exposure_col + 2].flatten()
+        y = adjusted_diffs[i, :, args.outcome_col + 2].flatten()
+        ols_res = sm.OLS(y, x).fit()
+        ols_results.append(ols_res)
 
     ism_cis = [ols_res.params[0] for ols_res in ols_results]
-    if includes_confounder:
-        ism_cis_no_conf = [ols_res.params[0] for ols_res in ols_results_no_conf]
 
     results_dir = os.path.join(args.data_dir, args.results_dir_name)
     os.makedirs(results_dir, exist_ok=True)
@@ -199,13 +200,6 @@ def main(args):
         f.write('seq, CI\n')
         for i, ci in enumerate(ism_cis):
             f.write(f'{i}, {ci}\n')
-
-    if includes_confounder:
-        os.makedirs(results_dir, exist_ok=True)
-        with open(os.path.join(results_dir, f'{args.exposure_name}_{args.outcome_name}_true_ces_no_conf.csv'), 'w') as f:
-            f.write('seq, CI\n')
-            for i, ci in enumerate(ism_cis_no_conf):
-                f.write(f'{i}, {ci}\n')
 
 
 if __name__ == "__main__":
