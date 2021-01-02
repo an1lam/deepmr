@@ -1,29 +1,34 @@
 task_specs:
   Oct4:
-    pos_counts: /home/stephenmalina/project/dat/bpnet-manuscript-data/data/chip-nexus/Oct4/counts.pos.bw
-    neg_counts: /home/stephenmalina/project/dat/bpnet-manuscript-data/data/chip-nexus/Oct4/counts.neg.bw
-    peaks: /home/stephenmalina/project/dat/bpnet-manuscript-data/data/chip-nexus/Oct4/idr-optimal-set.summit.bed.gz
+    tracks:
+    - /home/ubuntu/dev/an1lam/deepmr/dat/bpnet-manuscript-data/data/chip-nexus/Oct4/counts.pos.bw
+    - /home/ubuntu/dev/an1lam/deepmr/dat/bpnet-manuscript-data/data/chip-nexus/Oct4/counts.neg.bw
+    peaks: /home/ubuntu/dev/an1lam/deepmr/dat/bpnet-manuscript-data/data/chip-nexus/Oct4/idr-optimal-set.summit.bed.gz
   Sox2:
-    pos_counts: /home/stephenmalina/project/dat/bpnet-manuscript-data/data/chip-nexus/Sox2/counts.pos.bw
-    neg_counts: /home/stephenmalina/project/dat/bpnet-manuscript-data/data/chip-nexus/Sox2/counts.neg.bw
-    peaks: /home/stephenmalina/project/dat/bpnet-manuscript-data/data/chip-nexus/Sox2/idr-optimal-set.summit.bed.gz
+    tracks:
+    - /home/ubuntu/dev/an1lam/deepmr/dat/bpnet-manuscript-data/data/chip-nexus/Sox2/counts.pos.bw
+    - /home/ubuntu/dev/an1lam/deepmr/dat/bpnet-manuscript-data/data/chip-nexus/Sox2/counts.neg.bw
+    peaks: /home/ubuntu/dev/an1lam/deepmr/dat/bpnet-manuscript-data/data/chip-nexus/Sox2/idr-optimal-set.summit.bed.gz
   Nanog:
-    pos_counts: /home/stephenmalina/project/dat/bpnet-manuscript-data/data/chip-nexus/Nanog/counts.pos.bw
-    neg_counts: /home/stephenmalina/project/dat/bpnet-manuscript-data/data/chip-nexus/Nanog/counts.neg.bw
-    peaks: /home/stephenmalina/project/dat/bpnet-manuscript-data/data/chip-nexus/Nanog/idr-optimal-set.summit.bed.gz
+    tracks:
+    - /home/ubuntu/dev/an1lam/deepmr/dat/bpnet-manuscript-data/data/chip-nexus/Nanog/counts.pos.bw
+    - /home/ubuntu/dev/an1lam/deepmr/dat/bpnet-manuscript-data/data/chip-nexus/Nanog/counts.neg.bw
+    peaks: /home/ubuntu/dev/an1lam/deepmr/dat/bpnet-manuscript-data/data/chip-nexus/Nanog/idr-optimal-set.summit.bed.gz
   Klf4:
-    pos_counts: /home/stephenmalina/project/dat/bpnet-manuscript-data/data/chip-nexus/Klf4/counts.pos.bw
-    neg_counts: /home/stephenmalina/project/dat/bpnet-manuscript-data/data/chip-nexus/Klf4/counts.neg.bw
-    peaks: /home/stephenmalina/project/dat/bpnet-manuscript-data/data/chip-nexus/Klf4/idr-optimal-set.summit.bed.gz
+    tracks:
+    - /home/ubuntu/dev/an1lam/deepmr/dat/bpnet-manuscript-data/data/chip-nexus/Klf4/counts.pos.bw
+    - /home/ubuntu/dev/an1lam/deepmr/dat/bpnet-manuscript-data/data/chip-nexus/Klf4/counts.neg.bw
+    peaks: /home/ubuntu/dev/an1lam/deepmr/dat/bpnet-manuscript-data/data/chip-nexus/Klf4/idr-optimal-set.summit.bed.gz
 
 bias_specs:
   input:
-    pos_counts: /home/stephenmalina/project/dat/bpnet-manuscript-data/data/chip-nexus/patchcap/counts.pos.bw
-    neg_counts: /home/stephenmalina/project/dat/bpnet-manuscript-data/data/chip-nexus/patchcap/counts.neg.bw
+    tracks:
+    - /home/ubuntu/dev/an1lam/deepmr/dat/bpnet-manuscript-data/data/chip-nexus/patchcap/counts.pos.bw
+    - /home/ubuntu/dev/an1lam/deepmr/dat/bpnet-manuscript-data/data/chip-nexus/patchcap/counts.neg.bw
     tasks:
       - Oct4
       - Sox2
       - Nanog
       - Klf4
 
-fasta_file: /home/stephenmalina/project/dat/bpnet-manuscript-data/data/mm10_no_alt_analysis_set_ENCODE.fasta
+fasta_file: /home/ubuntu/dev/an1lam/deepmr/dat/bpnet-manuscript-data/data/mm10_no_alt_analysis_set_ENCODE.fasta

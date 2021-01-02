@@ -1,34 +1,17 @@
-task_specs:
-  Oct4:
-    tracks:
-    - /home/stephenmalina/project/dat/bpnet-manuscript-data/data/chip-nexus/Oct4/counts.pos.bw
-    - /home/stephenmalina/project/dat/bpnet-manuscript-data/data/chip-nexus/Oct4/counts.neg.bw
-    peaks: /home/stephenmalina/project/dat/bpnet-manuscript-data/data/chip-nexus/Oct4/idr-optimal-set.summit.bed.gz
-  Sox2:
-    tracks:
-    - /home/stephenmalina/project/dat/bpnet-manuscript-data/data/chip-nexus/Sox2/counts.pos.bw
-    - /home/stephenmalina/project/dat/bpnet-manuscript-data/data/chip-nexus/Sox2/counts.neg.bw
-    peaks: /home/stephenmalina/project/dat/bpnet-manuscript-data/data/chip-nexus/Sox2/idr-optimal-set.summit.bed.gz
-  Nanog:
-    tracks:
-    - /home/stephenmalina/project/dat/bpnet-manuscript-data/data/chip-nexus/Nanog/counts.pos.bw
-    - /home/stephenmalina/project/dat/bpnet-manuscript-data/data/chip-nexus/Nanog/counts.neg.bw
-    peaks: /home/stephenmalina/project/dat/bpnet-manuscript-data/data/chip-nexus/Nanog/idr-optimal-set.summit.bed.gz
-  Klf4:
-    tracks:
-    - /home/stephenmalina/project/dat/bpnet-manuscript-data/data/chip-nexus/Klf4/counts.pos.bw
-    - /home/stephenmalina/project/dat/bpnet-manuscript-data/data/chip-nexus/Klf4/counts.neg.bw
-    peaks: /home/stephenmalina/project/dat/bpnet-manuscript-data/data/chip-nexus/Klf4/idr-optimal-set.summit.bed.gz
+b_loss_weight = 0
+c_loss_weight = 10
+p_loss_weight = 1
+filters = 64
+tconv_kernel_size = 25
+lr = 0.004
+n_dil_layers = 9
+train.batch_size = 128
+merge_profile_reg = False
+dataspec = 'ChIP-nexus.dataspec.yml'
 
-bias_specs:
-  input:
-    tracks:
-    - /home/stephenmalina/project/dat/bpnet-manuscript-data/data/chip-nexus/patchcap/counts.pos.bw
-    - /home/stephenmalina/project/dat/bpnet-manuscript-data/data/chip-nexus/patchcap/counts.neg.bw
-    tasks:
-      - Oct4
-      - Sox2
-      - Nanog
-      - Klf4
+batchnorm = False
 
-fasta_file: /home/stephenmalina/project/dat/bpnet-manuscript-data/data/mm10_no_alt_analysis_set_ENCODE.fasta
+padding = 'same'
+seq_width = 1000
+
+tasks = ['Oct4', 'Sox2', 'Nanog', 'Klf4']
