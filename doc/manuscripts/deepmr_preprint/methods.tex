@@ -28,15 +28,6 @@ Deep MR outputs local, sequence-specific causal effects and global, exposure/out
     \item Estimate overall per-exposure causal effects using a random effects meta-analysis.
 \end{enumerate}
 
-\subsection{Components}%
-\label{sub:meth_components}
-
-\subsubsection{Calibrated Model}%
-\label{ssub:calibrated_model}
-
-\subsubsection{MR Method}%
-\label{ssub:mr_method}
-
 \subsection{Key Assumptions}%
 \label{sub:meth_key_assumptions}
 \method\ relies on a few key assumptions regarding the DL model being used and the causal structure of the underlying data-generating process.
@@ -45,6 +36,9 @@ Deep MR outputs local, sequence-specific causal effects and global, exposure/out
 \label{ssub:underlying_model_performance}
 Because Deep MR uses variant effect estimates from a trained model rather than from real data as input to MR, the quality of its causal effect estimates is limited by the quality of the trained model. As a result, Deep MR works best when the trained model to which it's being applied achieves high accuracy on held-out test data.
 
+\subsubsection{Model Calibration}%
+\label{ssub:meth_model_calibration}
+MR Egger, the Mendelian Randomization method we use, requires properly calibrated effect size and standard error estimates for each instrument. Proper calibration of standard errors matters for MR because over-confident effect size standard errors will produce over-confident causal effect confidence intervals and standard errors and vice versa for under-confidence. As mentioned, we derive our estimates of predictive mean and standard deviation, which determine effect size and standard error, from predictions generated with MC-dropout or an ensemble. In our experiments, both of these methods tend to produce un-calibrated, over-confident estimates as measured by the metrics proposed by~\cite{kuleshov2018accurate}. To remedy this, we apply and recommend isotonic regression for calibrating regression ensembles and Platt scaling for calibrating classifiers.
 
 \subsubsection{MR DAG Faithfulness}%
 \label{ssub:mr_dag_faithfulness}
@@ -65,18 +59,3 @@ The exclusion restriction assumption requires all influence of an instrument, in
 \paragraph{Local Linearity}%
 \label{par:meth_local_linearity}
 As discussed in Section~\ref{par:rel_work_mr_assumptions}, MR correctly estimates causal effects when all relationships -- instrument to exposure and exposure to outcome -- are linear. However, in functional genomics settings, the relationship between phenotypes can be non-linear. For example, in the case of strong TF binding cooperativity, knocking out one TF's binding will knock out the other's entirely, violating linearity. Fortunately, in our application, we only require the weaker condition of local linearity to hold in order for our method to work. Concretely, because each of our effect sizes is derived from the predicted effect of a single point mutation on the exposure/outcome phenotypes, our method works as long as the relationships between exposure and outcome predictions stays linear within the local neighborhood of the initial values.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
