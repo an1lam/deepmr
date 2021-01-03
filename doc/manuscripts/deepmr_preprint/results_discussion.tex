@@ -1,14 +1,61 @@
 \section{Experiments}
-\subsection{Simulation}
+Each of our three experiments follows the same high-level process described in~\ref{sub:algo_overview}. We train or load an already trained model that outputs uncertainty estimates, run \textit{in-silico mutagenesis} to obtain effect sizes and standard errors, and run MR to compute sequence-region level causal effects.
 
-\subsection{}
+Code for all experiments can be found at \url{https://github.com/an1lam/deepmr}.
 
-\section{Discussion}
-\subsection{Challenges}
-\subsubsection{Mendelian Randomization requires strong assumptions}
+\subsection{Simulation}%
+\label{sub:res_simulation}
 
-\subsubsection{Obtaining calibrated standard error estimates for sequence-level causal effect estimates}
+\subsubsection{Setup}%
+\label{ssub:sim_setup}
+In this section, we summarize how our simulation operates.\footnote{For more details, see Appendix~\ref{sec:appendix_a}.} Our simulation is inspired by the one described in~\cite{finkelstein2020look}, but tailored towards to fit our goal of estimating causal relationships between features.
 
-\subsubsection{Deep MR's accuracy is limited by the accuracy of the underlying model}
+Our simulation models the binding of two TFs, an exposure TF and an outcome TF, to simulated 100-base pair DNA sequences. Binding strength (the output) in a given sequence is a noisy function of how well the sequence matches binding motifs and is measured in terms of counts, the typical output units of a high-throughput sequencing assay. Each sequence gets annotated with two output labels, exposure and outcome TF binding strength. We train convolutional neural network (CNN) models on the data produced in each scenario and use them, combined with held-out test sets, as inputs for Deep MR. Details on model parameters and training can be found in Appendix A.
+
+We configured our simulation to support three different scenarios, no unobserved confounding between exposure and outcome, sequence-based unobserved confounding, and non-sequence-based unobserved confounding. Sequence-based unobserved confounding adds an additional confounder TF and motif which influences the binding strength of both exposure and outcome TFs to the simulation.
+
+\paragraph{Sequence \& Count Generative Process}
+Sequences are simulated as follows. For a given sequence to-be-simulated, we:
+\begin{enumerate}
+	\item Sample from a background distribution over the 4 DNA nucleotides.
+	\item With probability \( .75 \), insert motif-length sequence(s) sampled from one of the exposure motif, the outcome motif, or both motifs.
+	\item If a sequence-dependent confounder is being used, sample from the confounder motif and insert the sample in the sequence with probability \( .75 \).
+\end{enumerate}
+
+Our counts generative process is designed based on our ultimate goal of estimating the strength of the causal relationship between our exposure and outcome TFs. To capture this, the exposure TF's binding strength is determined purely by the strength of the match between the overall sequence and the exposure's assigned motif, whereas the outcome TF's binding is a multiplicative function of both the strength of its own motif match and the strength of the exposure's. However, real assay datasets also inevitably include experimental noise. To remain faithful to this, our final counts are sampled from a Poisson random variable with mean/variance equal to the `raw' count value computed based on motif strength. Finally, following~\cite{finkelstein2020look}, we Anscombe transform the raw counts to produce the final output.
+
+\paragraph{True Causal Effect Computation}
+To assess the quality of our method, we need to compare its estimates to a ground truth. \method\ estimates the effect of a unit change in the exposure on the outcome by using single point mutation that meaningfully affects the exposure as instruments. Our simulation can provide us with the true count value for any given mutated sequence, which we leverage to compute true sequence-region level causal effects. For a given sequence which contains the exposure motif, the true causal effect is the regression coefficient obtained from regressing the effect of all point mutations to bases within the exposure motif on the outcome on the corresponding effects on the exposure. This is similar to the two-stage least squares MR method~\citep{angrist1995two} where all mutations within the region of the exposure motif are assumed to be valid instruments.
+
+\subsubsection{Results}%
+\label{ssub:sim_results}
+\begin{tabular}{ |p{3cm}||p{5cm}|p{5cm}|p{3cm}|  }
+ \hline
+ \multicolumn{4}{|c|}{Simulation Estimated Effects} \\
+ \hline
+ Confounding & True Global CE & Estimated Global CE & Coverage (\%) \\
+ \hline
+ None   &     & &   \\
+ \hline
+ Sequence-based & &  & \\
+ \hline
+ Random 0.7257342 / 0.5672811 / 0.9432931 & 0.8164 & 0.9635866 & \\
+ \hline
+\end{tabular}
+
+\paragraph{\method\ estimates global CEs with high accuracy in \dots cases}%
+\label{par:sim_res_1}
+
+\paragraph{\method\ TODO in sequence-based and non-sequence-based confounding case}
+
+\paragraph{\method\ has mediocre coverage at the sequence-region level}
+\begin{itemize}
+	\item Due to systematic underestimation of CEs/CI uppers
+\end{itemize}
+
+
+\subsection{BPNet}
+
+\subsection{DeepSEA}
 
 
