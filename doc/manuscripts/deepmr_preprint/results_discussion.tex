@@ -50,9 +50,15 @@ To assess the quality of our method, we need to compare its estimates to a groun
 
 \paragraph{\method\ accurately estimates local and global CEs in unconfounded and random confounding cases.}%
 \label{par:sim_res_1}
-We measured the quality of Deep MR's estimates on simulated data in terms of two metrics: accuracy of global CEs and coverage of local CE 95\% confidence intervals. We judged accuracy of global CEs in terms of how closely global CE estimates reflected the mean / median / mode of the true CEs as shown in Table~\ref{tab:sim_results}. In the unconfounded and random confounding scenarios, coverage is very close to 95\%, suggesting that our local CEs intervals are well-calibrated and global CE estimates fall between the median and the mean and the mean and the mode respectively. This implies that when confounding is absent or not dependent on sequence contents, Deep MR produces reasonable estimates of the underlying global causal effects and calibrated, albeit relatively uncertain, estimates of the local causal effects. On the other hand, coverage in the case of sequence-dependent confounding is much worse. Deep MR systematically overestimates local CEs, with TODO\% of estimates and TODO\% of 95\% confidence intervals falling above their corresponding true values.
+We measured the quality of Deep MR's estimates on simulated data in terms of two metrics: accuracy of global CEs and coverage of local CE 95\% confidence intervals. We judged accuracy of global CEs in terms of how closely global CE estimates reflected the mean / median / mode of the true CEs as shown in Table~\ref{tab:sim_results}. In the unconfounded and random confounding scenarios, coverage is very close to 95\%, suggesting that our local CEs intervals are well-calibrated and global CE estimates fall between the median and the mean and the mean and the mode respectively. This implies that when confounding is absent or not dependent on sequence contents, Deep MR produces reasonable estimates of the underlying global causal effects and calibrated, albeit relatively uncertain, estimates of the local causal effects. On the other hand, coverage in the case of sequence-dependent confounding is much worse - only 64\% of the 95\% CIs capture the true causal effect. Together, these results suggest that \method's local CE estimates in particular are more trustworthy in cases where there's plausibly minimal or no sequence-dependent confounding.
 
 \subsection{BPNet}
+\begin{figure}[htpb]
+	\centering
+	\includegraphics[width=0.8\linewidth]{fig/bpnet_global_ces}
+	\caption{Name}%
+	\label{fig:bpnet_global_ces}
+\end{figure}
 
 \subsection{DeepSEA}
 
