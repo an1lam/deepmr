@@ -80,7 +80,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--data_dir",
-        default="../dat/",
+        default="../dat/deepsea",
         help="(Absolute or relative) path to the directory in which you want to store data.",
     )
     parser.add_argument(

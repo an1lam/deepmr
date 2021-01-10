@@ -195,7 +195,7 @@ def write_results(result_fpath, diffs, stderrs, x_col=0, y_col=1, sig_idxs=None)
     ]
     if sig_idxs is None:
         sig_idxs = np.full(diffs.shape, True, dtype=bool)
-    
+
     with open(result_fpath, "w", newline="") as out_file:
         writer = csv.DictWriter(out_file, delimiter=",", fieldnames=fieldnames)
         writer.writeheader()
@@ -300,8 +300,8 @@ if __name__ == "__main__":
     parser.add_argument("--y_column_name", default="HepG2_DNase_None")
 
     # File paths & names
-    parser.add_argument("--input_data_dir", default="../dat")
-    parser.add_argument("--output_data_dir", default="../dat")
+    parser.add_argument("--input_data_dir", default="../dat/deepsea/")
+    parser.add_argument("--output_data_dir", default="../dat/deepsea/")
     parser.add_argument("--genome_fname", default="hg19.fa")
     parser.add_argument("--peaks_fname", default="50_random_seqs_2.bed")
     today = datetime.date(datetime.now())

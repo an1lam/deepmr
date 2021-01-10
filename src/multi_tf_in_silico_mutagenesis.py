@@ -74,7 +74,8 @@ def in_silico_mutagenesis_cmd(args, tf, input_bed_fname, results_fname):
         "--results_fname",
         f"{results_fname}",
     ]
-    if args.override_random_seed: cmd.append("--override_random_seed")
+    if args.override_random_seed:
+        cmd.append("--override_random_seed")
     return cmd
 
 
@@ -88,7 +89,7 @@ def run(args):
             continue
 
         input_bed_fname = tf_bed_file_name(current_tf)
-        output_bed_fname = tf_bed_file_name(current_tf, sample=True)
+        output_bed_fname = tf_bed_file_name(current_tf, sample=(not args.skip_sampling))
 
         cmd = sample_seqs_cmd(args, input_bed_fname, output_bed_fname)
         if not args.skip_sampling:
@@ -122,7 +123,7 @@ if __name__ == "__main__":
     parser.add_argument("--dry_run", action="store_true", default=False)
     parser.add_argument("--skip_sampling", action="store_true", default=False)
     parser.add_argument("--skip_mutagenesis", action="store_true", default=False)
-    parser.add_argument("--input_data_dir", default="../dat/inp/peaks")
+    parser.add_argument("--input_data_dir", default="../dat/deepsea/")
     parser.add_argument("--intermediate_results_dir", default="../dat/int/")
     parser.add_argument(
         "-c",
@@ -133,7 +134,7 @@ if __name__ == "__main__":
         help="Chromosomes to use as a validation set. Typically have format "
         "'chr<number | letter (X or Y)>'.",
     )
-    parser.add_argument("--results_dir", default="../dat/res/")
+    parser.add_argument("--results_dir", default="../dat/deepsea/res/")
 
     parser.add_argument("--tfs_fpath", default="./encode_hepg2_deepsea_cols.csv")
     parser.add_argument("-l", "--limit_to_tfs", nargs="+")
