@@ -14,7 +14,7 @@ library(tidyverse)
 ```
 
 ```{r}
-base_path <- "../../dat/res-bpnet-2020-09-09/"
+base_path <- "../../dat/res-bpnet-2021-01-03-01-14-07_v2/"
 files <- list.files(path=base_path, "*.csv")
 
 result <- matrix(ncol=5, nrow=length(files))
@@ -27,7 +27,8 @@ is.nan.data.frame <- function(x) {
 
 for (i in 1:length(files)) {
   f <- files[i]
-  seq_predictions <- read.csv(file.path(base_path, f))
+  seq_predictions <- read.csv(file.path(base_path, f)) %>%
+      drop_na()
 
   ivw_vals = list()
   egger_vals = list()
@@ -47,26 +48,30 @@ for (i in 1:length(files)) {
                               bxse = bxset,
                               by = byt,
                               byse = byset)
-    EggerObject <- mr_egger(MRInputObject)
-    IVWObject <- mr_ivw(MRInputObject)
-
-    egger_result[seq, ] <- c(
-      EggerObject$Estimate,
-      EggerObject$CILower.Est,
-      EggerObject$CIUpper.Est,
-      EggerObject$I.sq,
-      EggerObject$Pleio.pval,
-      EggerObject$StdError.Est
-    )
-    all_ces <- c(all_ces, EggerObject$Estimate)
+    if (length(bxt) > 2) {
+      if (length(bxt) > 10) {
+        EggerObject <- mr_egger(MRInputObject, alpha = 0.05, robust = T)
+      } else {
+        EggerObject <- mr_egger(MRInputObject, alpha = 0.05)
+      }
+      egger_result[seq, ] <- c(
+        EggerObject$Estimate,
+        EggerObject$CILower.Est,
+        EggerObject$CIUpper.Est,
+        EggerObject$I.sq,
+        EggerObject$Pleio.pval,
+        EggerObject$StdError.Est
+      )
+      all_ces <- c(all_ces, EggerObject$Estimate)
+    }
   }
 
   colnames(egger_result) <- c("ce", "cil", "ciu", "i.sq", "pleio", "std")
   egger_result <- as_tibble(egger_result)
   meta_result <- meta::metagen(egger_result$ce, egger_result$std)
-
+  tf <- paste(unlist(strsplit(f, split="_"))[1:2], collapse = " on ")
   result[i, ] <- c(
-    f, meta_result$TE.random, meta_result$seTE.random, meta_result$pval.random, 
+    tf, meta_result$TE.random, meta_result$seTE.random, meta_result$pval.random, 
     meta_result$tau
   )
 }
@@ -83,10 +88,11 @@ ce_smoothed <- ks::kde(
   bgridsize=c(200)
 )
 
-# png(file.path("../../doc/icml-compbio-2020/fig/", "all_tfs_ces_kde.png"), width = 512, height = 320)
-# par(mar=c(5, 6, 5, 1)+.1)
+png(file.path("../../doc/manuscripts/deepmr_preprint/fig/", "all_tfs_ces_kde.png"), width = 512, height = 320)
+par(mar=c(5, 6, 5, 1)+.1)
 
 plot(ce_smoothed, main = "Causal Effect Estimates (All TFs)",xlab = "Causal Effect", ylab = "Density", cex.main = 2, cex.lab = 2, ratio = 2)
+
 ```
 
 ```{r}
@@ -122,5 +128,5 @@ p <- ggplot(data=formatted_result, aes(y=TF, x=Mean), width = 956, height = 432)
 p + labs(title="TF→TF Causal Effects", y="TF", x= "Effect (Mean)")+
    theme_classic() +
    scale_fill_manual(values=c('#999999','#E69F00'))
-ggsave("test.png")
+ggsave(file.path("../../doc/manuscripts/deepmr_preprint/fig/", "bpnet_global_ces.png"))
 ```

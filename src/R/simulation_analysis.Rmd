@@ -5,13 +5,14 @@ date: "11/16/2020"
 output: html_document
 params:
   # sim_results_dir: "../../dat/sim_e2e/res/2020-12-30-15-53-56"
-  # sim_results_dir: "../../dat/sim_e2e_conf/res/2020-12-30-19-37-17"
-  sim_results_dir: "../../dat/sim_e2e_prob_conf/res/2020-12-31-16-21-29"
+  sim_results_dir: "../../dat/sim_e2e_conf/res/2020-12-30-19-37-17"
+  # sim_results_dir: "../../dat/sim_e2e_prob_conf/res/2020-12-31-16-21-29"
   # output_dir: "../../dat/sim_e2e/res/2020-12-30-15-53-56/fig/"
-  # output_dir: "../../dat/sim_e2e_conf/res/2020-12-30-19-37-17/fig"
-  output_dir: "../../dat/sim_e2e_prob_conf/res/2020-12-31-16-21-29/fig"
+  output_dir: "../../dat/sim_e2e_conf/res/2020-12-30-19-37-17/fig"
+  # output_dir: "../../dat/sim_e2e_prob_conf/res/2020-12-31-16-21-29/fig"
 
-  save_plots: F
+  save_plots: FALSE
+  recompute_meta: TRUE
   mr_method: "egger"
   alpha: .05
   seed: 42
@@ -52,7 +53,7 @@ fit_egger <- function(exp_eff_sizes, exp_std_errs, out_eff_sizes, out_std_errs) 
     byse = out_std_errs
   )
   if (length(exp_eff_sizes) > 10) {
-    EggerObject <- mr_egger(MRInputObject, aha=params$alpha, robust=TRUE)
+    EggerObject <- mr_egger(MRInputObject, aha=params$alpha, robust=TRUE, iterations = 10000)
   } else {
     EggerObject <- mr_egger(MRInputObject, alpha=params$alpha)
   }
@@ -286,8 +287,8 @@ mr_results
 ```{r}
 ci_keys <- paste(params$mr_method, c("ciu", "cil"), sep=".")
 if (params$mr_method != "raps") {
-  cis <- mr_results[ci_keys] %>%
-    rename("upper" = ci_keys[1], "lower" = ci_keys[2])
+  cis <- mr_results[c(ci_keys, ce_key)] %>%
+    rename("upper" = ci_keys[1], "lower" = ci_keys[2], "est" = ce_key)
 } else {
   cis <- data.frame(
     upper = mr_results$raps.ce + 2 * mr_results$raps.std,
@@ -321,12 +322,35 @@ if (params$save_plots) {
 
 
 ```{r}
-meta_result <- meta::metagen(get(ce_key, mr_results), get(std_key, mr_results))
-summary(meta_result)
+output_fname <- str_c(exp_tf, out_tf, "meta_results.Rdata", sep = "_")
+output_fpath <- file.path(params$output_dir, output_fname)
+if (params$recompute_meta) {
+  meta_result <- meta::metagen(get(ce_key, mr_results), get(std_key, mr_results))
+  meta_result_summary <- summary(meta_result)
+  save(meta_result_summary, file = output_fpath)
+} else {
+  meta_result_summary <- load(output_fpath)
+}
+meta_result_summary
 median(cis$true_val[which(!is.na(cis$true_val))])
 mean(cis$true_val[which(!is.na(cis$true_val))])
 dmode(cis$true_val[which(!is.na(cis$true_val))])
 ```
+
+```{r}
+cis_above_true_val <- cis[which(cis$true_val < cis$lower),]
+cis_below_true_val <- cis[which(cis$true_val > cis$upper),]
+ces_above_true_val <- cis[which(
+  (cis$true_val < cis$est) & ((cis$true_val < cis$lower) | (cis$true_val > cis$upper))
+),]
+ces_below_true_val <- cis[which(cis$true_val > cis$est),]
+
+sprintf("Fraction of CIs above true val: %.2f", nrow(cis_above_true_val) / nrow(cis))
+sprintf("Fraction of CIs below true val: %.2f", nrow(cis_below_true_val) / nrow(cis))
+sprintf("Fraction of CEs above true val: %.2f", nrow(ces_above_true_val) / nrow(cis))
+sprintf("Fraction of CEs below true val: %.2f", nrow(ces_below_true_val) / nrow(cis))
+```
+
 
 ```{r}
 if (params$save_plots) {
