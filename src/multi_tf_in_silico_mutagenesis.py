@@ -137,7 +137,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--results_dir", default="../dat/deepsea/res/")
 
-    parser.add_argument("--features_fpath", default="./encode_hepg2_deepsea_cols.csv")
+    parser.add_argument("--features_fpath", default="./deepsea_experiment_features.csv")
     parser.add_argument("-l", "--limit_to_exps", nargs="+")
     parser.add_argument("--n_seqs", type=int, default=25)
 
