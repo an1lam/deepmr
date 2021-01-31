@@ -6,6 +6,7 @@ import pandas as pd
 
 CELL_TYPE = "HepG2"
 EXP_FEATURE_COL = "Exposure"
+OUT_FEATURE_COL = "Outcome"
 
 
 def exp_bed_file_name(exp, sample=False):
@@ -83,7 +84,7 @@ def run(args):
     features_df = pd.read_csv(args.features_fpath)
     features_df = features_df.drop_duplicates(subset=[EXP_FEATURE_COL])
 
-    for row in exps_df.iterrows():
+    for row in features_df.iterrows():
         current_exp = row[1][EXP_FEATURE_COL]
         current_out = row[1][OUT_FEATURE_COL]
         if args.limit_to_exps is not None and current_exp not in args.limit_to_exps:
