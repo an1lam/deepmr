@@ -1,11 +1,17 @@
 #!/usr/bin/env python
 
 import argparse
+from collections import Counter
 import glob
 import logging
 import pickle
 import os
 import subprocess
+
+
+def lines(fpath):
+    with open(fpath, "r") as f:
+        return len(f.readlines())
 
 
 def download_and_extract_hg19(args):
@@ -37,11 +43,9 @@ def glob_chroms_into_hg_file(args):
     with open(hg_path, "wb") as f:
         subprocess.check_call("cat %s" % (chrom_glob_pattern), stdout=f, shell=True)
 
-    wc_result = subprocess.check_output(["wc", "-l", hg_path])
-    # Assumed format: '<number of lines> <file name>'
-    hg_num_lines = int(str(wc_result).split(" ")[0])
+    num_lines = lines(hg_path)
     assert (
-        hg_num_lines == 62743362
+        num_lines == 62743362
     ), "hg19 line length %d != 62743362, something went wrong..." % (hg_num_lines)
 
     if not args.cleanup:

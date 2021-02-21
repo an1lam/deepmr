@@ -1,4 +1,5 @@
 import argparse
+import os
 import subprocess
 
 import pandas as pd
@@ -84,6 +85,8 @@ def run(args):
     features_df = pd.read_csv(args.features_fpath)
     features_df = features_df.drop_duplicates(subset=[EXP_FEATURE_COL])
 
+    os.makedirs(args.intermediate_results_dir, exist_ok=True)
+
     for row in features_df.iterrows():
         current_exp = row[1][EXP_FEATURE_COL]
         current_out = row[1][OUT_FEATURE_COL]
@@ -126,7 +129,7 @@ if __name__ == "__main__":
     parser.add_argument("--skip_sampling", action="store_true", default=False)
     parser.add_argument("--skip_mutagenesis", action="store_true", default=False)
     parser.add_argument("--input_data_dir", default="../dat/deepsea/")
-    parser.add_argument("--intermediate_results_dir", default="../dat/int/")
+    parser.add_argument("--intermediate_results_dir", default="../dat/deepsea/int/")
     parser.add_argument(
         "-c",
         "--chroms",

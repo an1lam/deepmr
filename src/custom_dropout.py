@@ -70,7 +70,7 @@ class LockedChannelDropout(LockedDropout):
         return (1, x.size(1), 1, 1)
 
 
-def replace_dropout_layers(model, dropout_cls=LockedChannelDropout):
+def replace_dropout_layers(model, dropout_cls=LockedWeightDropout):
     for name, module in reversed(model._modules.items()):
         if len(list(module.children())) > 0:
             # recurse

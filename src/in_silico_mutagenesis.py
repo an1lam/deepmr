@@ -18,7 +18,8 @@ from torch.nn import functional as F
 from tqdm.auto import tqdm
 
 
-from custom_dropout import apply_dropout
+from custom_dropout import apply_dropout, replace_dropout_layers
+from filter_instrument_candidates import filter_variants_by_score
 
 
 def batches_needed(seq_len, batch_size, alpha_size=4):
@@ -194,7 +195,7 @@ def write_results(result_fpath, diffs, stderrs, x_col=0, y_col=1, sig_idxs=None)
         "Y_pred_var",
     ]
     if sig_idxs is None:
-        sig_idxs = np.full(diffs.shape, True, dtype=bool)
+        sig_idxs = np.full(diffs.shape[:3], True, dtype=bool)
 
     with open(result_fpath, "w", newline="") as out_file:
         writer = csv.DictWriter(out_file, delimiter=",", fieldnames=fieldnames)
@@ -236,6 +237,7 @@ def main(args):
     preds_fpath = os.path.join(args.input_data_dir, args.preds_fname)
     if args.preds_action == "write":
         deepsea = kipoi.get_model(args.kipoi_model_name, source="kipoi")
+        deepsea.model = replace_dropout_layers(deepsea.model)
         deepsea.model.apply(apply_dropout)
         x_col = get_matching_cols(
             deepsea.schema.targets.column_labels, [args.x_column_name]
@@ -277,7 +279,8 @@ def main(args):
         print(f"Diffs: {diffs[5, 0:1, :, :]}")
     if args.results_fname:
         results_fpath = os.path.join(args.output_data_dir, args.results_fname)
-        write_results(results_fpath, diffs, stderrs)
+        sig_var_idxs = filter_variants_by_score(diffs[:, :, :, 0])
+        write_results(results_fpath, diffs, stderrs, sig_idxs=sig_var_idxs)
 
 
 if __name__ == "__main__":
@@ -289,8 +292,8 @@ if __name__ == "__main__":
     parser.add_argument("--verbose", action="store_true", default=False)
 
     # Kipoi related
-    parser.add_argument("--kipoi_model_name", default="DeepSEA/predict")
-    parser.add_argument("--auto_resize_len", type=int, default=1000)
+    parser.add_argument("--kipoi_model_name", default="DeepSEA/beluga")
+    parser.add_argument("--auto_resize_len", type=int, default=2000)
     parser.add_argument(
         "--feature_column_names",
         nargs="+",
