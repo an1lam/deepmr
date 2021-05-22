@@ -440,7 +440,7 @@ def train(args):
     )
 
     # Save the model to a file
-    torch.save(model.state_dict(), os.path.join(args.data_dir, args.model_fname))
+    torch.save(model.state_dict(), os.path.join(args.weights_dir, args.model_fname))
 
 def main(args):
     if args.model_type == "individual":
@@ -451,7 +451,7 @@ def main(args):
             ensemble_args = copy.deepcopy(args)
             ensemble_args.seed = i
             os.makedirs(os.path.join(args.data_dir, "ensemble", str(i)), exist_ok=True)
-            ensemble_args.model_fname = f"ensemble/{i}/{args.model_fname}"
+            ensemble_args.model_fname = f"{i}/{args.model_fname}"
             train(ensemble_args)
 
 if __name__ == "__main__":
