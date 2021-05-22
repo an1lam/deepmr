@@ -191,8 +191,8 @@ def simulate_oracle_predictions(
     c_exp = exp_bias + alpha * q_exp + eta * q_conf + tau * b_conf
     c_out = out_bias + beta * (q_exp * q_out) + nu * q_conf + tau * b_conf
 
-    c_exp_noisy = np.random.poisson(np.minimum(c_exp, 0), len(c_exp))
-    c_out_noisy = np.random.poisson(np.minimum(c_out, 0), len(c_out))
+    c_exp_noisy = np.random.poisson(np.maximum(c_exp, 0), len(c_exp))
+    c_out_noisy = np.random.poisson(np.maximum(c_out, 0), len(c_out))
     return c_exp_noisy, c_out_noisy, c_exp, c_out, q_exp, q_out
 
 

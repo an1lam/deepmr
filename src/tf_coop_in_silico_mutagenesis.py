@@ -224,7 +224,7 @@ def main(args):
         "dense_layer_width": args.dense_layer_width,
     }
     ensemble_model = Ensemble(
-        args.weights_dir, args.model_fname, params, n_reps=args.n_reps
+        args.weights_dir, args.model_fname, vars(args), n_reps=args.n_reps
     )
     calibrated_ensemble_model = CalibratedRegressionEnsemble(
         ensemble_model, test_data_loader
