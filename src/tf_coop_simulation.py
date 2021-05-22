@@ -166,8 +166,8 @@ def simulate_oracle_predictions(
     eta=20,
     nu=30,
     tau=25,
-    exp_bias=0,
-    out_bias=0,
+    exp_bias=1,
+    out_bias=1,
     confounder_prob=0,
 ):
     """
@@ -191,8 +191,9 @@ def simulate_oracle_predictions(
     c_exp = exp_bias + alpha * q_exp + eta * q_conf + tau * b_conf
     c_out = out_bias + beta * (q_exp * q_out) + nu * q_conf + tau * b_conf
 
-    c_exp_noisy = np.random.poisson(c_exp, len(c_exp))
-    c_out_noisy = np.random.poisson(c_out, len(c_out))
+    print(c_exp, c_out)
+    c_exp_noisy = np.random.poisson(min(c_exp, 0), len(c_exp))
+    c_out_noisy = np.random.poisson(min(c_out, 0), len(c_out))
     return c_exp_noisy, c_out_noisy, c_exp, c_out, q_exp, q_out
 
 
@@ -256,6 +257,8 @@ def generate_variant_counts_and_labels(
     confounder_prob=0,
     frac=1.0,
     max_mutations_per_variant=1,
+    alpha=100.0,
+    beta=100.0,
 ):
     n_variants = int(len(sequences) * frac)
     variant_indexes = np.random.choice(
@@ -271,6 +274,8 @@ def generate_variant_counts_and_labels(
         outcome_pwm,
         confounder_pwm=confounder_pwm,
         confounder_prob=confounder_prob,
+        alpha=alpha,
+        beta=beta,
     )
     variant_labels = labels[variant_indexes].copy()
     return variants, variant_counts, variant_labels, variant_indexes
@@ -449,7 +454,7 @@ def main(args):
 
     train_counts = simulate_oracle_predictions(
         train_sequences, exposure_pwm, outcome_pwm, confounder_pwm=confounder_pwm,
-        confounder_prob=args.confounder_prob
+        confounder_prob=args.confounder_prob, alpha=args.alpha, beta=args.beta,
     )
     test_counts = simulate_oracle_predictions(
         test_sequences,
@@ -457,6 +462,8 @@ def main(args):
         outcome_pwm,
         confounder_pwm=confounder_pwm,
         confounder_prob=args.confounder_prob,
+        alpha=args.alpha,
+        beta=args.beta,
     )
 
     if args.log_summary_stats:
@@ -517,6 +524,8 @@ def main(args):
             confounder_prob=args.confounder_prob,
             frac=args.variant_augmentation_percentage,
             max_mutations_per_variant=args.max_mutations_per_variant,
+            alpha=args.alpha,
+            beta=args.beta,
         )
         (
             test_variants,
@@ -533,6 +542,8 @@ def main(args):
             confounder_prob=args.confounder_prob,
             frac=args.variant_augmentation_percentage,
             max_mutations_per_variant=args.max_mutations_per_variant,
+            alpha=args.alpha,
+            beta=args.beta,
         )
         train_variant_df = pd.DataFrame(
             {
