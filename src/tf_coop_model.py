@@ -16,6 +16,9 @@ from pyx.one_hot import one_hot
 from utils import detect_device
 
 
+default_device = "cuda" if torch.cuda.is_available() else "cpu"
+
+
 def add_args(parser):
     # Model
     parser.add_argument(
@@ -291,6 +294,7 @@ def train_model(
             optimizer,
             training=True,
             metrics_config=metrics_config,
+            device=detect_device(),
         )
         val_predictions, val_losses, val_metrics = run_one_epoch(
             model,
@@ -298,6 +302,7 @@ def train_model(
             optimizer,
             training=False,
             metrics_config=metrics_config,
+            device=detect_device(),
         )
         avg_val_loss = np.mean(val_losses)
 
