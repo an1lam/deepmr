@@ -5,7 +5,9 @@ import logging
 import os
 from datetime import datetime
 
+import numpy as np
 from scipy.stats import bernoulli, norm
+from tqdm import tqdm
 
 from tf_coop_in_silico_mutagenesis import main as in_silico_mutagenesis_main
 from tf_coop_model import main as model_main
@@ -224,22 +226,22 @@ def add_args(parser):
     # Experimental parameters
     # ************************************************************************
     parser.add_argument("--mixture_nonzero_prob", type=float, default=.1)
-    parser.add_argument("--effect_size_low_mean", type=float, default=2)
-    parser.add_argument("--effect_size_high_mean", type=float, default=100)
+    parser.add_argument("--effect_size_ratio_mean", type=float, default=100)
     parser.add_argument("--effect_size_std", type=float, default=10)
     parser.add_argument("--n_rounds", type=int, default=50)
     parser.add_argument("--metadata_fname", default="metadata.json")
     return parser
 
 
-def sample_from_binary_mixture(p, mu_low, mu_high, sigma, n_samples):
+def sample_from_binary_mixture(p, mu, sigma, n_samples):
     choices = bernoulli.rvs(p, size=n_samples)
-    return norm.rvs(loc=mu_high * choices + mu_low * (1 - choices), scale=sigma, size=len(choices))
+    locs = mu * choices
+    return norm.rvs(loc=locs, scale=sigma, size=len(choices)), choices
 
 
-def record_metadata(metadata_path, effect_size_samples):
+def record_metadata(metadata_path, **kwargs):
     with open(metadata_path, 'w') as f:
-        json.dump({"effect_sizes": effect_size_samples.tolist()}, f)
+        json.dump(kwargs, f)
 
 
 if __name__ == "__main__":
@@ -248,20 +250,30 @@ if __name__ == "__main__":
     parser = add_args(parser)
     args = parser.parse_args()
 
-    effect_size_samples = sample_from_binary_mixture(
+    effect_size_samples, choices = sample_from_binary_mixture(
         args.mixture_nonzero_prob, 
-        args.effect_size_low_mean, 
-        args.effect_size_high_mean, 
+        args.effect_size_ratio_mean, 
         args.effect_size_std,
         args.n_rounds
     )
-    for i, effect_size in enumerate(effect_size_samples):
+    effect_size_samples = np.maximum(effect_size_samples, 0)
+    alphas = norm.rvs(loc=100, scale=3, size=len(effect_size_samples))
+    logging.info(f"Effect sizes: {effect_size_samples}")
+    logging.info(f"Choices: {choices}")
+    logging.info(f"Alphas: {alphas}")
+    for i, effect_size in tqdm(enumerate(effect_size_samples)):
         exp_args = copy.deepcopy(args)
         exp_args.results_dir_name = os.path.join(exp_args.results_dir_name, f"round_{i}")
         os.makedirs(exp_args.results_dir_name, exist_ok=True)
-        exp_args.alpha = exp_args.beta = effect_size
+        exp_args.alpha = alphas[i]
+        exp_args.beta = alphas[i] * effect_size
         sim_main(exp_args)
         model_main(exp_args)
         in_silico_mutagenesis_main(exp_args)
         true_ces_main(exp_args)
-    record_metadata(os.path.join(args.results_dir_name, args.metadata_fname), effect_size_samples)
+    record_metadata(
+        os.path.join(args.results_dir_name, args.metadata_fname), 
+        effect_size_samples=effect_size_samples, 
+        choices=choices, 
+        alphas=alphas
+    )
