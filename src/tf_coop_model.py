@@ -444,6 +444,7 @@ def train(args):
     torch.save(model.state_dict(), os.path.join(args.weights_dir, args.model_fname))
 
 def main(args):
+    os.makedirs(args.weights_dir, exist_ok=True)
     if args.model_type == "individual":
         train(args)
     elif args.model_type == "ensemble":
@@ -451,7 +452,7 @@ def main(args):
         for i in range(1, args.n_reps + 1):
             ensemble_args = copy.deepcopy(args)
             ensemble_args.seed = i
-            os.makedirs(os.path.join(args.data_dir, "ensemble", str(i)), exist_ok=True)
+            os.makedirs(os.path.join(args.weights_dir, str(i)), exist_ok=True)
             ensemble_args.model_fname = f"{i}/{args.model_fname}"
             train(ensemble_args)
 
