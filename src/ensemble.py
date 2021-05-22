@@ -1,3 +1,4 @@
+import logging
 import os
 
 from matplotlib import pyplot as plt
@@ -22,6 +23,7 @@ class Ensemble:
         models = []
         for i in range(1, n_reps+1):
             model = model_cls(**model_params)
+            logging.info(f"Loading model {i} from {os.path.join(model_base_dir, str(i), model_fname)}")
             model.load_state_dict(torch.load(os.path.join(model_base_dir, str(i), model_fname)))
             models.append(model)
         self.models = models

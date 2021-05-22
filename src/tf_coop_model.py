@@ -440,6 +440,7 @@ def train(args):
     )
 
     # Save the model to a file
+    logging.info(f"Saving model to {os.path.join(args.weights_dir, args.model_fname)}")
     torch.save(model.state_dict(), os.path.join(args.weights_dir, args.model_fname))
 
 def main(args):
