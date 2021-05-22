@@ -240,7 +240,9 @@ def main(args):
     )
     n_features, n_seqs, n_reps, n_variants = formatted_preds.shape
     formatted_preds = formatted_preds.transpose(2, 1, 3, 0)
-    formatted_preds = formatted_preds.reshape(n_reps, n_seqs, 4, -1, n_features)
+    formatted_preds = formatted_preds.reshape(n_reps, n_seqs, -1, 4, n_features)
+    formatted_preds = formatted_preds.transpose(0, 1, 3, 2, 4)
+
 
     means, mean_diffs, stderrs = compute_summary_statistics(
         formatted_preds, np.array(sample_seqs)

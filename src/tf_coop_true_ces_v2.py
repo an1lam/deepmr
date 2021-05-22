@@ -176,12 +176,14 @@ def main(args):
     assert np.allclose(fragment_length, end_pos - start_pos)
     adjusted_labels_ism = np.array(adjusted_labels_ism)
     adjusted_labels_ism = adjusted_labels_ism.transpose((0, 2, 1))
-    adjusted_labels_ism = np.array(adjusted_labels_ism).reshape(len(sample_seqs), 4, fragment_length, -1)
+    adjusted_labels_ism = np.array(adjusted_labels_ism).reshape(len(sample_seqs), fragment_length, 4, -1)
+    adjusted_labels_ism = adjusted_labels_ism.transpose((0, 2, 1, 3))
     adjusted_labels_ism_anscombe = anscombe_transform(adjusted_labels_ism)
     seq_idxs = np.array(sample_seq_fragments).astype(np.bool)
     adjusted_ref_labels_ism = adjusted_labels_ism_anscombe[seq_idxs].reshape(len(sample_seqs), 1, fragment_length, -1)
     adjusted_mut_labels_ism = adjusted_labels_ism_anscombe[~seq_idxs].reshape(len(sample_seqs), 3, fragment_length, -1)
     adjusted_diffs = adjusted_mut_labels_ism - adjusted_ref_labels_ism
+    assert np.all(adjusted_ref_labels_ism[0, 0, :, 2] == adjusted_ref_labels_ism[0, 0, 0, 2])
 
     ols_results = []
     for i in range(len(sample_seqs)):

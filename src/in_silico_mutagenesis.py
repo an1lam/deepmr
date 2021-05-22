@@ -144,6 +144,7 @@ def compute_summary_statistics(preds, seqs, lambdas=1):
 
     seq_idxs = seqs[np.newaxis, :].repeat(epochs, axis=0).astype(np.bool)
     ref_preds = preds[seq_idxs].reshape(epochs, n_seqs, 1, seq_len, -1)
+    assert (ref_preds[0, 0, 0, :, 0] == ref_preds[0, 0, 0, 0, 0]).all()
     mut_preds = preds[~seq_idxs].reshape(epochs, n_seqs, n_nts - 1, seq_len, -1)
     # Relies on the fact that `avg(A - B) = avg(A) - avg(B)`.
     mean_diffs = np.mean(mut_preds - ref_preds, axis=0)
