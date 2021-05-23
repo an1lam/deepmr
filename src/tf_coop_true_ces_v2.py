@@ -120,6 +120,7 @@ def main(args):
     exposure_motif = TF_TO_MOTIF[args.exposure_name]
     outcome_motif = TF_TO_MOTIF[args.outcome_name]
 
+    logging.info(f"Loading from {args.data_dir}")
     test_data_fpath = os.path.join(args.data_dir, args.test_data_fname)
     raw_simulation_data_fpath = os.path.join(args.data_dir, args.test_simdata_fname)
     includes_confounder = (args.confounder_motif is not None) or (args.confounder_prob > 0)
@@ -187,15 +188,16 @@ def main(args):
 
     ols_results = []
     for i in range(len(sample_seqs)):
-        x = adjusted_diffs[i, :, args.exposure_col + 2].flatten()
-        y = adjusted_diffs[i, :, args.outcome_col + 2].flatten()
+        x = adjusted_diffs[i, :, :, args.exposure_col + 2].flatten()
+        y = adjusted_diffs[i, :, :, args.outcome_col + 2].flatten()
+        assert len(x) == fragment_length * 3, len(x)
+        assert len(y) == fragment_length * 3, len(y)
         ols_res = sm.OLS(y, x).fit()
         ols_results.append(ols_res)
 
     ism_cis = [ols_res.params[0] for ols_res in ols_results]
 
     results_dir = os.path.join(args.data_dir, args.results_dir_name)
-    os.makedirs(results_dir, exist_ok=True)
 
     logging.info(f"Saving true CEs to {results_dir}")
     with open(os.path.join(results_dir, f'{args.exposure_name}_{args.outcome_name}_true_ces.csv'), 'w') as f:

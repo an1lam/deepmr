@@ -499,6 +499,7 @@ def main(args):
         }
     )
     # Save labeled data to file to be used for model training and predictions
+    logging.info(f"Saving to {args.data_dir}")
     train_df.to_csv(
         os.path.join(args.data_dir, args.train_data_fname), header=True, index=False
     )
@@ -568,6 +569,7 @@ def main(args):
                 "original_index": test_variant_indexes,
             }
         )
+        logging.info(f"Saving variant DFs to {args.data_dir}")
         train_variant_df.to_csv(
             os.path.join(args.data_dir, args.train_variant_data_fname),
             header=True,

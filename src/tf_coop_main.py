@@ -235,7 +235,7 @@ def add_args(parser):
 
 def sample_from_binary_mixture(p, mu, sigma, n_samples):
     choices = bernoulli.rvs(p, size=n_samples)
-    locs = mu * choices
+    locs = (mu * choices) + (1 - choices)
     return norm.rvs(loc=locs, scale=sigma, size=len(choices)), choices
 
 

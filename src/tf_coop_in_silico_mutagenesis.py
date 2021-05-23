@@ -243,7 +243,6 @@ def main(args):
     formatted_preds = formatted_preds.reshape(n_reps, n_seqs, -1, 4, n_features)
     formatted_preds = formatted_preds.transpose(0, 1, 3, 2, 4)
 
-
     means, mean_diffs, stderrs = compute_summary_statistics(
         formatted_preds, np.array(sample_seqs)
     )
@@ -261,7 +260,7 @@ def main(args):
         stderrs,
     )
 
-    sig_var_idxs = filter_variants_by_score(mean_diffs[:, :, :, 0])
+    sig_var_idxs = filter_variants_by_score(mean_diffs[:, :, :, 0], z_threshold=1.)
     logging.info(
         "Reduced number of instruments down from %d to %d (%.2f %%)"
         % (
