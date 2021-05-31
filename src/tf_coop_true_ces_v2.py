@@ -190,8 +190,6 @@ def main(args):
     for i in range(len(sample_seqs)):
         x = adjusted_diffs[i, :, :, args.exposure_col + 2].flatten()
         y = adjusted_diffs[i, :, :, args.outcome_col + 2].flatten()
-        assert len(x) == fragment_length * 3, len(x)
-        assert len(y) == fragment_length * 3, len(y)
         ols_res = sm.OLS(y, x).fit()
         ols_results.append(ols_res)
 
