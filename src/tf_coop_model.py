@@ -95,7 +95,7 @@ def add_args(parser):
     parser.add_argument(
         "--patience",
         type=int,
-        default=10,
+        default=20,
         help="Number of epochs to continue training for after validation loss stops decreasing before stopping."
     )
 
@@ -306,21 +306,21 @@ def train_model(
         )
         avg_val_loss = np.mean(val_losses)
 
-        # logging.info(
-        #     f"Epoch {epoch}: mean training loss: {np.mean(train_losses)}, validation loss: {avg_val_loss}"
-        # )
+        logging.info(
+            f"Epoch {epoch}: mean training loss: {np.mean(train_losses)}, validation loss: {avg_val_loss}"
+        )
         for metric_key in train_metrics.keys():
             train_metric = train_metrics[metric_key]
             val_metric = val_metrics[metric_key]
-            # logging.info(
-            #     f"Epoch {epoch}: mean training {metric_key}: {train_metric}, val {metric_key}: {val_metric}"
-            # )
+            logging.info(
+                f"Epoch {epoch}: mean training {metric_key}: {train_metric}, val {metric_key}: {val_metric}"
+            )
 
         if avg_val_loss > best_avg_val_loss:
             patience_counter -= 1
-            # logging.info(
-            #     f"Epoch {epoch}: decremented patience counter to {patience_counter}"
-            # )
+            logging.info(
+                f"Epoch {epoch}: decremented patience counter to {patience_counter}"
+            )
         else:
             torch.save(model.state_dict(), checkpoint_fpath)
             patience_counter = patience
@@ -328,12 +328,12 @@ def train_model(
 
         if patience_counter == 0:
             model.load_state_dict(torch.load(checkpoint_fpath))
-            # logging.info(
-            #     f"Epoch {epoch}: patience hit 0, reverting to best model and engaging early stopping"
-            # )
+            logging.info(
+                f"Epoch {epoch}: patience hit 0, reverting to best model and engaging early stopping"
+            )
             break
 
-        # logging.info("*" * 50)
+        logging.info("*" * 50)
 
     # If we finished iterating but never hit early stopping, there's a chance we don't currently
     # have the best params. This ensures that we return the model loaded with the best params as

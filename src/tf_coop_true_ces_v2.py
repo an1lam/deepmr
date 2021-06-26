@@ -120,8 +120,8 @@ def main(args):
     exposure_motif = TF_TO_MOTIF[args.exposure_name]
     outcome_motif = TF_TO_MOTIF[args.outcome_name]
 
-    logging.info(f"Loading from {args.data_dir}")
     test_data_fpath = os.path.join(args.data_dir, args.test_data_fname)
+    logging.info(f"Reading test data from {test_data_fpath}")
     raw_simulation_data_fpath = os.path.join(args.data_dir, args.test_simdata_fname)
     includes_confounder = (args.confounder_motif is not None) or (args.confounder_prob > 0)
 
@@ -138,7 +138,7 @@ def main(args):
     test_data_loader = torch.utils.data.DataLoader(
         test_dataset, batch_size=args.batch_size, num_workers=0
     )
-    exposure_motif_df = test_df[(test_df['has_exposure'] == 1)]
+    exposure_motif_df = test_df[(test_df['has_exposure'] == 1) & (test_df['has_outcome'] == 1)]
     exposure_motif_dataset = IterablePandasDataset(
         exposure_motif_df, x_cols=args.sequences_col, y_cols=args.label_cols, x_transform=one_hot,
         y_transform=anscombe_transform
@@ -169,7 +169,9 @@ def main(args):
             [one_hot_decode(mut) for mut in muts],
             exposure_pwm,
             outcome_pwm,
-            confounder_pwm=None
+            confounder_pwm=None,
+            alpha=args.alpha,
+            beta=args.beta,
         )
         adjusted_labels_ism.append(adjusted_labels_)
 
@@ -184,6 +186,12 @@ def main(args):
     adjusted_ref_labels_ism = adjusted_labels_ism_anscombe[seq_idxs].reshape(len(sample_seqs), 1, fragment_length, -1)
     adjusted_mut_labels_ism = adjusted_labels_ism_anscombe[~seq_idxs].reshape(len(sample_seqs), 3, fragment_length, -1)
     adjusted_diffs = adjusted_mut_labels_ism - adjusted_ref_labels_ism
+    results_dir = os.path.join(args.data_dir, args.results_dir_name)
+    with open(os.path.join(results_dir, f'{args.exposure_name}_{args.outcome_name}_adjusted_diffs.npy'), 'wb') as f:
+        np.save(f, adjusted_diffs)
+    with open(os.path.join(results_dir, f'{args.exposure_name}_{args.outcome_name}_adjusted_mut_labels_ism.npy'), 'wb') as f:
+        np.save(f, adjusted_mut_labels_ism)
+
     assert np.all(adjusted_ref_labels_ism[0, 0, :, 2] == adjusted_ref_labels_ism[0, 0, 0, 2])
 
     ols_results = []
@@ -195,10 +203,10 @@ def main(args):
 
     ism_cis = [ols_res.params[0] for ols_res in ols_results]
 
-    results_dir = os.path.join(args.data_dir, args.results_dir_name)
 
-    logging.info(f"Saving true CEs to {results_dir}")
-    with open(os.path.join(results_dir, f'{args.exposure_name}_{args.outcome_name}_true_ces.csv'), 'w') as f:
+    true_ces_output_path = os.path.join(results_dir, f'{args.exposure_name}_{args.outcome_name}_true_ces.csv')
+    logging.info(f"Saving true CEs to {true_ces_output_path}")
+    with open(true_ces_output_path, 'w') as f:
         f.write('seq, CI\n')
         for i, ci in enumerate(ism_cis):
             f.write(f'{i}, {ci}\n')

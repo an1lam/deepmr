@@ -85,7 +85,7 @@ class CalibratedRegressionEnsemble:
                 recal_model = self._recalibrators[f]
                 orig_preds = predictions[c, :, f]
                 orig_quantiles = pred_dist.cdf(orig_preds)
-                recal_quantiles = recal_model.predict(orig_quantiles)
+                recal_quantiles = recal_model.predict(np.nan_to_num(orig_quantiles))
                 recal_predictions[c, :, f] = pred_dist.ppf(recal_quantiles)
         preds['recal_predictions'] = recal_predictions
         return preds

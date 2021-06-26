@@ -354,7 +354,7 @@ def generate_sequences_mixture(
         )
         embedders.append(
             synthetic.RandomSubsetOfEmbedders(
-                synthetic.BernoulliQuantityGenerator(0.75), [confounder_motif_embedder]
+                synthetic.BernoulliQuantityGenerator(0.5), [confounder_motif_embedder]
             )
         )
 

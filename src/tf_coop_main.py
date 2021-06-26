@@ -225,8 +225,8 @@ def add_args(parser):
     # ************************************************************************
     # Experimental parameters
     # ************************************************************************
-    parser.add_argument("--mixture_nonzero_prob", type=float, default=.1)
-    parser.add_argument("--effect_size_ratio_mean", type=float, default=100)
+    parser.add_argument("--mixture_nonzero_prob", type=float, default=.5)
+    parser.add_argument("--effect_size_ratio_mean", type=float, default=10)
     parser.add_argument("--effect_size_std", type=float, default=.5)
     parser.add_argument("--n_rounds", type=int, default=50)
     parser.add_argument("--metadata_fname", default="metadata.json")

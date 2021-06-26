@@ -161,10 +161,10 @@ def compute_summary_statistics(preds, seqs, lambdas=1):
                     # Result will be a 2x2, symmetric matrix.
                     cov = np.cov(np.stack((curr_ref_preds, curr_mut_preds)), ddof=0)
                     # Get the variance (on the diagonal) and the covariance (off-diagonal).
-                    assert np.allclose(cov[0, 0], ref_vars[seq_idx, 0, seq_pos, col])
-                    assert np.allclose(
-                        cov[1, 1], mut_vars[seq_idx, nt_pos, seq_pos, col]
-                    )
+                    # assert np.allclose(cov[0, 0], ref_vars[seq_idx, 0, seq_pos, col])
+                    # assert np.allclose(
+                    #     cov[1, 1], mut_vars[seq_idx, nt_pos, seq_pos, col]
+                    # )
                     covs[seq_idx, nt_pos, seq_pos, col] = cov[0, 1]
 
     stderrs = np.sqrt(lambdas * ref_vars + lambdas * mut_vars - 2 * lambdas * covs)
