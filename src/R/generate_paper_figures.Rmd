@@ -1,0 +1,159 @@
+---
+title: "R Notebook"
+output: html_notebook
+params:
+  save_plots: FALSE
+  output_dir: "./fig/"
+---
+
+```{r}
+library(xtable)
+```
+
+
+```{r}
+
+unconfounded_data_dir <- file.path(
+  "../../dat/sim_e2e_final/unconfounded/2021-05-29-01-24-49",
+  "analysis"
+)
+rand_confounding_data_dir <- file.path(
+  "../../dat/sim_e2e_final/rand_confounded/res/2021-06-27-14-08-55/",
+  "analysis"
+)
+seq_confounding_data_dir <- file.path(
+  "../../dat/sim_e2e_final/seq_confounded/res/2021-06-26-14-36-13/",
+  "analysis"
+)
+both_confounding_data_dir <- file.path(
+  "../../dat/sim_e2e_final/confounded/2021-05-29-13-36-38/",
+  "analysis"
+)
+unconfounded_global_metrics <- read.table(
+  file.path(unconfounded_data_dir, "GATA_TAL1_global_metrics.csv"),
+  header = T
+)
+rand_confounding_global_metrics <- read.table(
+  file.path(rand_confounding_data_dir, "GATA_TAL1_global_metrics.csv"),
+  header = T
+)
+seq_confounding_global_metrics <- read.table(
+  file.path(seq_confounding_data_dir, "GATA_TAL1_global_metrics.csv"),
+  header = T
+)
+both_confounding_global_metrics <- read.table(
+  file.path(both_confounding_data_dir, "GATA_TAL1_global_metrics.csv"),
+  header = T
+)
+unconfounded_global_metrics
+rand_confounding_global_metrics
+seq_confounding_global_metrics
+```
+
+```{r}
+# Global CE plots
+unconfounded_global_ces_plot <- 
+  ggplot(unconfounded_global_metrics, aes(x = true_ce_est, y = ce_est)) +
+  geom_point(size = 2) +
+  geom_errorbar(aes(ymin = ce_est - sqrt(ce_tau2), ymax = ce_est + sqrt(ce_tau2))) +
+  geom_abline(slope=1) +
+  xlab("Global Mean Causal Effect") + ylab("Global Causal Effect Estimate")
+rand_confounding_global_ces_plot <- 
+  ggplot(rand_confounding_global_metrics, aes(x = true_ce_est, y = ce_est)) +
+  geom_point(size = 2) +
+  geom_errorbar(aes(ymin = ce_est - sqrt(ce_tau2), ymax = ce_est + sqrt(ce_tau2))) +
+  geom_abline(slope=1) +
+  xlab("Global Mean Causal Effect") + ylab("Global Causal Effect Estimate")
+seq_confounding_global_ces_plot <- 
+  ggplot(seq_confounding_global_metrics, aes(x = true_ce_est, y = ce_est)) +
+  geom_point(size = 2) +
+  geom_errorbar(aes(ymin = ce_est - sqrt(ce_tau2), ymax = ce_est + sqrt(ce_tau2))) +
+  geom_abline(slope=1) +
+  xlab("Global Mean Causal Effect") + ylab("Global Causal Effect Estimate")
+
+unconfounded_calibration_plot <- 
+  ggplot(unconfounded_global_metrics, aes(x=calibration)) + 
+  geom_histogram(bins=20, colour="black", fill="white") +
+  geom_vline(aes(xintercept=mean(calibration, na.rm=T)),   # Ignore NA values for mean
+           color="red", linetype="dashed", size=1) +
+  xlab("Calibration") +
+  ylab("Count")
+rand_confounding_calibration_plot <- 
+  ggplot(rand_confounding_global_metrics, aes(x=calibration)) + 
+  geom_histogram(bins=10, colour="black", fill="white") +
+  geom_vline(aes(xintercept=mean(calibration, na.rm=T)),   # Ignore NA values for mean
+           color="red", linetype="dashed", size=1) +
+  xlab("Calibration") +
+  ylab("Count")
+seq_confounding_calibration_plot <- 
+  ggplot(seq_confounding_global_metrics, aes(x=calibration)) + 
+  geom_histogram(bins=10, colour="black", fill="white") +
+  geom_vline(aes(xintercept=mean(calibration, na.rm=T)),   # Ignore NA values for mean
+           color="red", linetype="dashed", size=1) +
+  xlab("Calibration") +
+  ylab("Count")
+
+if (params$save_plots) {
+  output_fname <- str_c("fig1.png", sep = "_")
+  output_fpath <- file.path(params$output_dir, output_fname)
+  png(output_fpath, width = 1024, height = 512)
+  par(mar = c(5, 6, 5, 1) + .1)
+}
+ggarrange(
+  unconfounded_global_ces_plot,
+  rand_confounding_global_ces_plot,
+  seq_confounding_global_ces_plot,
+  unconfounded_calibration_plot,
+  rand_confounding_calibration_plot,
+  seq_confounding_calibration_plot,
+  ncol=3, nrow=2
+)
+if (params$save_plots) {
+  dev.off()
+}
+```
+
+```{r}
+sim_eff_sizes_fname <- str_c(
+  exp_tf, out_tf, "mr_inputs_calibrated.csv", sep="_"
+)
+ex_idx <- sample(0:49, 1)
+ex_round_eff_sizes <-
+  read.csv(file.path(params$sim_results_dir, str_c("round", sprintf("%d", ex_idx), sep="_"), sim_eff_sizes_fname)) %>%
+  drop_na()
+ex_seq_idx <- sample(min(ex_round_eff_sizes$seq_num):max(ex_round_eff_sizes$seq_num), 1)
+ex_seq_eff_sizes <- subset(ex_round_eff_sizes, seq_num == ex_seq_idx)
+ex_mr_plot <- make_mr_plot(ex_seq_eff_sizes)
+```
+
+
+
+```{r}
+metrics_tables <- list(
+  Unconfounded=unconfounded_global_metrics,
+  Random=rand_confounding_global_metrics,
+  Sequence=seq_confounding_global_metrics,
+  Both=both_confounding_global_metrics
+)
+results_summary <- imap(metrics_tables, function (global_metrics, name) {
+  ce_lower <- global_metrics$ce_est - sqrt(global_metrics$ce_tau2)
+  ce_upper <- global_metrics$ce_est + sqrt(global_metrics$ce_tau2)
+  true_ce_captured <- (
+    global_metrics$true_ce_est > ce_lower & global_metrics$true_ce_est < ce_upper
+  )
+  true_ces_captured <- sum(true_ce_captured) / nrow(global_metrics)
+  mean_calibration <- mean(unlist(global_metrics$calibration))
+  global_ces_accuracy <- cor(global_metrics$ce_est, global_metrics$true_ce_est)^2
+  
+  list(
+    "Global CE Accuracy"=global_ces_accuracy,
+    "Global CE Coverage"=true_ces_captured,
+    "Local CE CI Calibration"=mean_calibration
+  )
+})
+results_df <- do.call(rbind.data.frame, results_summary)
+names(results_df) <- gsub("\\.", " ", names(results_df))
+
+print(xtable(results_df, type = "latex"))
+
+```

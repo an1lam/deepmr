@@ -4,10 +4,22 @@ author: "Stephen Malina"
 date: "11/16/2020"
 output: html_document
 params:
-  sim_results_dir: "../../dat/sim_e2e_final/confounded/2021-05-29-13-36-38"
-  output_dir: "dat/sim_e2e_final/unconfounded/2021-05-29-01-24-49/analysis/"
+  # Unconfounded
+  # sim_results_dir: "../../dat/sim_e2e_final/unconfounded/2021-05-29-01-24-49/"
+  # output_dir: "../../dat/sim_e2e_final/unconfounded/2021-05-29-01-24-49/analysis/"
 
-  save_plots: FALSE
+  # Sequence-independent confounding
+  sim_results_dir: "../.././dat/sim_e2e_final/rand_confounded/res/2021-06-27-14-08-55/"
+  output_dir: "../.././dat/sim_e2e_final/rand_confounded/res/2021-06-27-14-08-55/analysis"
+
+  # Sequence-dependent confounding
+  # sim_results_dir: "../.././dat/sim_e2e_final/seq_confounded/res/2021-06-26-14-36-13/"
+  # output_dir: "../.././dat/sim_e2e_final/seq_confounded/res/2021-06-26-14-36-13/"
+
+  # Both Confounder Types
+  # sim_results_dir: "../../dat/sim_e2e_final/confounded/2021-05-29-13-36-38/"
+  # output_dir: "../../dat/sim_e2e_final/confounded/2021-05-29-13-36-38/analysis/"
+  save_plots: TRUE
   recompute_meta: TRUE
   mr_method: "egger"
   alpha: .05
@@ -33,7 +45,9 @@ library(slider)
 library(ks)
 library(doSNOW)
 library(sampler)
+# library(reshape)
 set.seed(params$seed)
+dir.create(params$output_dir, showWarnings = FALSE)
 ```
 
 ## Functions
@@ -268,7 +282,8 @@ dmode <- function(x) {
 exp_tf <- "GATA"
 out_tf <- "TAL1"
 
-calibrations <- foreach(i=1:49) %do% {
+calibrations <- foreach(i=0:49) %do% {
+  # i <- 47
   sim_eff_sizes_fname <- str_c(
     exp_tf, out_tf, "mr_inputs_calibrated.csv", sep="_"
   )
@@ -277,10 +292,10 @@ calibrations <- foreach(i=1:49) %do% {
     drop_na()
   n_seqs <- max(seq_eff_sizes$seq_num)
   mr_results <- run_mr(seq_eff_sizes, n_seqs, params$mr_method)
-
+  
   ce_key <- str_c(params$mr_method, "ce", sep=".")
   std_key <- str_c(params$mr_method, "std", sep=".")
-  mr_results <- mr_results %>% drop_na()
+  mr_results <- as_tibble(mr_results %>% drop_na())
   ci_keys <- paste(params$mr_method, c("ciu", "cil"), sep=".")
   if (params$mr_method != "raps") {
     cis <- mr_results[c(ci_keys, ce_key)] %>%
@@ -296,13 +311,13 @@ calibrations <- foreach(i=1:49) %do% {
   cis$true_val <- true_ces$CI[which(!is.na(cis$"upper"))]
   cis <- cis[!is.na(cis$true_val), ]
   calibration <- (measure_confidence_interval_calibration(cis))
-  print(calibration)
   return(calibration)
 }
 ```
 
+
 ```{r}
-true_ces_captured <- foreach(i=1:49) %do% {
+global_ces_list <- foreach(i=0:49) %do% {
   sim_eff_sizes_fname <- str_c(
     exp_tf, out_tf, "mr_inputs_calibrated.csv", sep="_"
   )
@@ -315,16 +330,7 @@ true_ces_captured <- foreach(i=1:49) %do% {
   ce_key <- str_c(params$mr_method, "ce", sep=".")
   std_key <- str_c(params$mr_method, "std", sep=".")
   mr_results <- mr_results %>% drop_na()
-  ci_keys <- paste(params$mr_method, c("ciu", "cil"), sep=".")
-  if (params$mr_method != "raps") {
-    cis <- mr_results[c(ci_keys, ce_key)] %>%
-      rename("upper" = ci_keys[1], "lower" = ci_keys[2], "est" = ce_key)
-  } else {
-    cis <- data.frame(
-      upper = mr_results$raps.ce + 2 * mr_results$raps.std,
-      lower = mr_results$raps.ce - 2 * mr_results$raps.std
-    )
-  }
+
   sim_true_ces_fname <- str_c(exp_tf, out_tf, "true_ces.csv", sep="_")
   true_ces <- read.csv(file.path(params$sim_results_dir, str_c("round", sprintf("%d", i), sep="_"), sim_true_ces_fname))
   meta_result <- meta::metagen(get(ce_key, mr_results), get(std_key, mr_results))
@@ -335,25 +341,79 @@ true_ces_captured <- foreach(i=1:49) %do% {
     ce_se=meta_result$seTE.random,
     ce_lower=meta_result$lower.random,
     ce_upper=meta_result$upper.random,
-    true_ce_est=mean(true_ces$CI, na.rm = T)
+    true_ce_est=mean(true_ces$CI, na.rm = T),
+    true_ce_std=sd(true_ces$CI, na.rm=T)
   ))
 }
-global_ces_data <- as.data.frame(data.table::rbindlist(true_ces_captured))
-global_ces_data
+global_ces_data <- as.data.frame(data.table::rbindlist(global_ces_list))
 ```
 
 ```{r}
-model <- lm(true_ce_est~ce_est, data=global_ces_data)
-summary(model)
+global_ces_plot <- ggplot(global_ces_data, aes(x = true_ce_est, y = ce_est)) +
+    geom_point(size = 2) +
+    geom_errorbar(aes(ymin = ce_est - sqrt(ce_tau2), ymax = ce_est + sqrt(ce_tau2))) +
+    geom_abline(slope=1) +
+    xlab("Global Mean Causal Effect") + ylab("Global Causal Effect Estimate")
 ```
 
 ```{r}
-plot(global_ces_data$ce_est, global_ces_data$true_ce_est)
+calibration_plot <- ggplot(reshape::melt(do.call(cbind, calibrations)), aes(x=value)) + 
+  geom_histogram(bins=10, colour="black", fill="white") +
+  geom_vline(aes(xintercept=mean(value, na.rm=T)),   # Ignore NA values for mean
+           color="red", linetype="dashed", size=1) +
+  xlab("Calibration") +
+  ylab("Count")
+```
+
+```{r}
+sim_eff_sizes_fname <- str_c(
+  exp_tf, out_tf, "mr_inputs_calibrated.csv", sep="_"
+)
+ex_idx <- sample(0:49, 1)
+ex_round_eff_sizes <-
+  read.csv(file.path(params$sim_results_dir, str_c("round", sprintf("%d", ex_idx), sep="_"), sim_eff_sizes_fname)) %>%
+  drop_na()
+ex_seq_idx <- sample(min(ex_round_eff_sizes$seq_num):max(ex_round_eff_sizes$seq_num), 1)
+ex_seq_eff_sizes <- subset(ex_round_eff_sizes, seq_num == ex_seq_idx)
+ex_mr_plot <- make_mr_plot(ex_seq_eff_sizes)
 ```
 
 
+
 ```{r}
-cor(global_ces_data$ce_est, global_ces_data$true_ce_est, method="spearman")
+if (params$save_plots) {
+  output_fname <- str_c(exp_tf, out_tf, "global_ce_calibration_plots.png", sep = "_")
+  output_fpath <- file.path(params$output_dir, output_fname)
+  png(output_fpath, width = 1024, height = 512)
+  par(mar = c(5, 6, 5, 1) + .1)
+}
+ggarrange(global_ces_plot, calibration_plot, ex_mr_plot, ncol=3)
+if (params$save_plots) {
+  dev.off()
+}
+```
+
+
+
+```{r}
+ce_lower <- global_ces_data$ce_est - sqrt(global_ces_data$ce_tau2)
+ce_upper <- global_ces_data$ce_est + sqrt(global_ces_data$ce_tau2)
+true_ce_captured <- (
+  global_ces_data$true_ce_est > ce_lower & global_ces_data$true_ce_est < ce_upper 
+)
+true_ces_captured <- sum(true_ce_captured) / nrow(global_ces_data)
+mean_calibration <- mean(unlist(calibrations))
+global_ces_accuracy <- cor(global_ces_data$ce_est, global_ces_data$true_ce_est)^2
+
+numerical_results <- list(
+  true_ces_captured=true_ces_captured,
+  mean_calibration=mean_calibration,
+  global_ces_accuracy=global_ces_accuracy
+)
+output_fname <- str_c(exp_tf, out_tf, "summary_stats.rds", sep = "_")
+output_fpath <- file.path(params$output_dir, output_fname)
+saveRDS(numerical_results, output_fpath)
+numerical_results
 ```
 
 
