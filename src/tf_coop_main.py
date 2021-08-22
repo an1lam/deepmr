@@ -271,8 +271,10 @@ if __name__ == "__main__":
         model_main(exp_args)
         in_silico_mutagenesis_main(exp_args)
         true_ces_main(exp_args)
+    metadata_path = os.path.join(args.data_dir, args.results_dir_name, args.metadata_fname)
+    logging.info(f"Finished all rounds. Saving metadata to {metadata_path}")
     record_metadata(
-        os.path.join(args.results_dir_name, args.metadata_fname), 
+        metadata_path, 
         effect_size_samples=effect_size_samples.tolist(), 
         choices=choices.tolist(), 
         alphas=alphas.tolist()
