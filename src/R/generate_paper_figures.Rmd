@@ -2,11 +2,27 @@
 title: "R Notebook"
 output: html_notebook
 params:
-  save_plots: FALSE
-  output_dir: "./fig/"
+  save_plots: TRUE
+  output_dir: "../../doc/manuscripts/deepmr_preprint/fig/"
 ---
 
 ```{r}
+library(MendelianRandomization)
+library(dplyr)
+library(ks)
+library(stats)
+library(meta)
+library(mr.raps)
+library(tidyverse)
+library(ggplot2)
+library(ggpubr)
+library(stringr)
+library(foreach)
+library(purrr)
+library(slider)
+library(ks)
+library(doSNOW)
+library(sampler)
 library(xtable)
 ```
 
@@ -55,19 +71,19 @@ seq_confounding_global_metrics
 unconfounded_global_ces_plot <- 
   ggplot(unconfounded_global_metrics, aes(x = true_ce_est, y = ce_est)) +
   geom_point(size = 2) +
-  geom_errorbar(aes(ymin = ce_est - sqrt(ce_tau2), ymax = ce_est + sqrt(ce_tau2))) +
+  geom_errorbar(aes(ymin = ce_est - 2 * sqrt(ce_tau2), ymax = ce_est + 2 * sqrt(ce_tau2))) +
   geom_abline(slope=1) +
   xlab("Global Mean Causal Effect") + ylab("Global Causal Effect Estimate")
 rand_confounding_global_ces_plot <- 
   ggplot(rand_confounding_global_metrics, aes(x = true_ce_est, y = ce_est)) +
   geom_point(size = 2) +
-  geom_errorbar(aes(ymin = ce_est - sqrt(ce_tau2), ymax = ce_est + sqrt(ce_tau2))) +
+  geom_errorbar(aes(ymin = ce_est - 2 * sqrt(ce_tau2), ymax = ce_est + 2 * sqrt(ce_tau2))) +
   geom_abline(slope=1) +
   xlab("Global Mean Causal Effect") + ylab("Global Causal Effect Estimate")
 seq_confounding_global_ces_plot <- 
   ggplot(seq_confounding_global_metrics, aes(x = true_ce_est, y = ce_est)) +
   geom_point(size = 2) +
-  geom_errorbar(aes(ymin = ce_est - sqrt(ce_tau2), ymax = ce_est + sqrt(ce_tau2))) +
+  geom_errorbar(aes(ymin = ce_est - 2 * sqrt(ce_tau2), ymax = ce_est + 2 * sqrt(ce_tau2))) +
   geom_abline(slope=1) +
   xlab("Global Mean Causal Effect") + ylab("Global Causal Effect Estimate")
 
@@ -77,24 +93,27 @@ unconfounded_calibration_plot <-
   geom_vline(aes(xintercept=mean(calibration, na.rm=T)),   # Ignore NA values for mean
            color="red", linetype="dashed", size=1) +
   xlab("Calibration") +
-  ylab("Count")
+  ylab("Count") +
+  xlim(0, 1)
 rand_confounding_calibration_plot <- 
   ggplot(rand_confounding_global_metrics, aes(x=calibration)) + 
   geom_histogram(bins=10, colour="black", fill="white") +
   geom_vline(aes(xintercept=mean(calibration, na.rm=T)),   # Ignore NA values for mean
            color="red", linetype="dashed", size=1) +
   xlab("Calibration") +
-  ylab("Count")
+  ylab("Count") +
+  xlim(0, 1)
 seq_confounding_calibration_plot <- 
   ggplot(seq_confounding_global_metrics, aes(x=calibration)) + 
   geom_histogram(bins=10, colour="black", fill="white") +
   geom_vline(aes(xintercept=mean(calibration, na.rm=T)),   # Ignore NA values for mean
            color="red", linetype="dashed", size=1) +
   xlab("Calibration") +
-  ylab("Count")
+  ylab("Count") +
+  xlim(0, 1)
 
 if (params$save_plots) {
-  output_fname <- str_c("fig1.png", sep = "_")
+  output_fname <- "fig2_sim_accuracy_coverage.png"
   output_fpath <- file.path(params$output_dir, output_fname)
   png(output_fpath, width = 1024, height = 512)
   par(mar = c(5, 6, 5, 1) + .1)
@@ -136,8 +155,8 @@ metrics_tables <- list(
   Both=both_confounding_global_metrics
 )
 results_summary <- imap(metrics_tables, function (global_metrics, name) {
-  ce_lower <- global_metrics$ce_est - sqrt(global_metrics$ce_tau2)
-  ce_upper <- global_metrics$ce_est + sqrt(global_metrics$ce_tau2)
+  ce_lower <- global_metrics$ce_est - 2 * sqrt(global_metrics$ce_tau2)
+  ce_upper <- global_metrics$ce_est + 2 * sqrt(global_metrics$ce_tau2)
   true_ce_captured <- (
     global_metrics$true_ce_est > ce_lower & global_metrics$true_ce_est < ce_upper
   )
@@ -148,7 +167,7 @@ results_summary <- imap(metrics_tables, function (global_metrics, name) {
   list(
     "Global CE Accuracy"=global_ces_accuracy,
     "Global CE Coverage"=true_ces_captured,
-    "Local CE CI Calibration"=mean_calibration
+    "Local CE CI Coverage"=mean_calibration
   )
 })
 results_df <- do.call(rbind.data.frame, results_summary)

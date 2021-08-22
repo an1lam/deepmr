@@ -283,7 +283,6 @@ exp_tf <- "GATA"
 out_tf <- "TAL1"
 
 calibrations <- foreach(i=0:49) %do% {
-  # i <- 47
   sim_eff_sizes_fname <- str_c(
     exp_tf, out_tf, "mr_inputs_calibrated.csv", sep="_"
   )

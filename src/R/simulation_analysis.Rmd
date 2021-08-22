@@ -23,6 +23,7 @@ library(stats)
 library(meta)
 library(mr.raps)
 library(tidyverse)
+library(gridExtra)
 library(ggplot2)
 library(ggpubr)
 library(stringr)
@@ -46,8 +47,12 @@ fit_egger <- function(exp_eff_sizes, exp_std_errs, out_eff_sizes, out_std_errs) 
     bxse = exp_std_errs,
     by = out_eff_sizes,
     byse = out_std_errs
-  )  
-  EggerObject <- mr_egger(MRInputObject, alpha=params$alpha, robust=TRUE)
+  )
+  if (length(exp_eff_sizes) > 10) {
+    EggerObject <- mr_egger(MRInputObject, aha=params$alpha, robust=TRUE)
+  } else {
+    EggerObject <- mr_egger(MRInputObject, alpha=params$alpha)
+  }
   result <- c(
     EggerObject$Estimate,
     EggerObject$CILower.Est,
@@ -142,7 +147,7 @@ run_mr <- function(seq_veffs, n_seqs, mr_method) {
       if (mr_method == "egger") {
         mr_res <- tryCatch(
           fit_egger(bxt, bxset, byt, byset),
-          error = function(err) {
+          error=function(err) {
             message(err)
             return(NA)
           }
@@ -245,7 +250,7 @@ ces_kde_plot <- function(ces, save_plots = F) {
       by = byt,
       byse = byset,
     )
-    return(mr_plot(MRInputObject, interactive=F))
+    return(mr_plot(MRInputObject, interactive=F, orientate = T))
   }
 ```
 
@@ -263,13 +268,11 @@ mr_results <- run_mr(seq_eff_sizes, n_seqs, params$mr_method)
 
 ce_key <- str_c(params$mr_method, "ce", sep=".")
 std_key <- str_c(params$mr_method, "std", sep=".")
-mr_results <- mr_results[which(!is.na(mr_results[ce_key]) & !is.na(mr_results[std_key])), ]
+mr_results <- mr_results %>% drop_na()
 mr_results
 ```
 
 ```{r}
-mr_results <- mr_results %>%
-  drop_na()
 ci_keys <- paste(params$mr_method, c("ciu", "cil"), sep=".")
 if (params$mr_method != "raps") {
   cis <- mr_results[ci_keys] %>%
@@ -283,9 +286,7 @@ if (params$mr_method != "raps") {
 sim_true_ces_fname <- str_c(exp_tf, out_tf, "true_ces.csv", sep="_")
 true_ces <- read.csv(file.path(params$sim_results_dir, sim_true_ces_fname))
 cis$true_val <- true_ces$CI[which(!is.na(cis$"upper"))]
-cis <- cis[!is.na(cis$true_val), ]
 measure_confidence_interval_calibration(cis)
-min(cis$true_val)
 ```
 
 
@@ -304,46 +305,34 @@ mean(cis$true_val[which(!is.na(cis$true_val))])
 ```
 
 ```{r}
-seq_eff_sizes <- foreach(exp_tf=exp_tfs, out_tf=out_tfs, .combine=cbind) %do% {
-  sim_eff_sizes_fname <- str_c(exp_tf, out_tf, "mr_inputs_calibrated.csv", sep="_")
-  seq_eff_sizes <- 
-    read.csv(file.path(params$sim_results_dir, sim_eff_sizes_fname)) %>%
-    drop_na()
-  return(seq_eff_sizes)
-}
+sim_eff_sizes_fname <- str_c(exp_tf, out_tf, "mr_inputs_calibrated.csv", sep="_")
+seq_eff_sizes <- 
+  read.csv(file.path(params$sim_results_dir, sim_eff_sizes_fname)) %>%
+  drop_na()
 
-eff_sizes <- subset(seq_eff_sizes, seq_num == 2719)
-
-bxt <- unlist(eff_sizes["X_pred_mean"])
-bxset <- unlist(eff_sizes["X_pred_var"])
-byt <- unlist(eff_sizes["Y_pred_mean"])
-byset <- unlist(eff_sizes["Y_pred_var"])
-MRInputObject <- mr_input(
-  bx = bxt,
-  bxse = bxset,
-  by = byt,
-  byse = byset,
-)
-mr_plot(mr_allmethods(MRInputObject), orientate = T)
-# 
 if (params$mr_method == "egger") {
   sample_good_est_idxs <- sample(
     which(mr_results$egger.int > -1 & mr_results$egger.int < 1),
-    5
+    2
   )
   sample_bad_est_idxs <- sample(
-    which(mr_results$egger.int > -1 & mr_results$egger.int < 1),
-    5
+    which(mr_results$egger.ce > 10),
+    2
   )
-  sample_bad_est_idxs
-  # sample_good_est_eff_sizes <- subset(seq_eff_sizes, seq_num == sample_good_est_idxs[1])
-  # good_est_mr_plots <- foreach(idx=sample_good_est_idxs, .combine=cbind) %do%
-  #   return(make_mr_plot(subset(seq_eff_sizes, seq_num == idx)))
-  # bad_est_mr_plots <- foreach(idx=sample_bad_est_idxs, .combine=cbind) %do%
-  #   return(make_mr_plot(subset(seq_eff_sizes, seq_num == idx)))
-  # 
-  # ggarrange(plotlist = c(good_est_mr_plots, bad_est_mr_plots), ncol=5, nrow=2)
-  # 
+
+  mr_plots <- list()
+  good_est_mr_plots <- for (i in 1:length(sample_good_est_idxs)) {
+    idx <- sample_good_est_idxs[i]
+    mr_plots[[i]] <- make_mr_plot(subset(seq_eff_sizes, seq_num == idx))
+  }
+  bad_est_mr_plots <- for (i in 1:length(sample_bad_est_idxs)) {
+    idx <- sample_bad_est_idxs[i]
+    j <- i + length(sample_good_est_idxs)
+    mr_plots[[j]] <- make_mr_plot(subset(seq_eff_sizes, seq_num == idx))
+  }
+  ggarrange(plotlist = mr_plots, nrow=2, ncol=2)
+
 }
 ```
+
 
