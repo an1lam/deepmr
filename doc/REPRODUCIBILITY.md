@@ -15,7 +15,7 @@ python setup.py develop
 ```
 
 ### R
-Our actual analysis for the paper used R, in part due to the mature Mendelian Randomization being available for R and not Python at the time we were doing the work. All of the R analysis was run on an Ubuntu laptop using R version 4.1.1 [1]. All R code can be found in `src/R` including an `install_packages.R` script which should install all (or at least most) of the packages required for reproducing our analyses.
+Our actual analysis for the paper used R, in part due to the mature Mendelian Randomization being available for R and not Python at the time we were doing the work. All of the R analysis was run on an Ubuntu laptop using R version 4.1.1 [^1]. All R code can be found in `src/R` including an `install_packages.R` script which should install all (or at least most) of the packages required for reproducing our analyses.
 
 ## TF Cooperativity Simulation
 ### Generating simulated data
@@ -41,7 +41,7 @@ Once you've done that, you should be able to run `compute_sim_metrics.Rmd`'s cel
 ## BPNet experiments
 
 
-[1]: For completeness, we've also included the full output of `sessionInfo()` below:
+[^1]: For completeness, we've also included the full output of `sessionInfo()` below:
 ```
 R version 4.1.1 (2021-08-10)
 Platform: x86_64-pc-linux-gnu (64-bit)
