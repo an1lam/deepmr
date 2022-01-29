@@ -135,19 +135,6 @@ if (params$save_plots) {
 }
 ```
 
-```{r}
-# sim_eff_sizes_fname <- str_c(
-#   exp_tf, out_tf, "mr_inputs_calibrated.csv", sep="_"
-# )
-# ex_idx <- sample(0:49, 1)
-# ex_round_eff_sizes <-
-#   read.csv(file.path(params$sim_results_dir, str_c("round", sprintf("%d", ex_idx), sep="_"), sim_eff_sizes_fname)) %>%
-#   drop_na()
-# ex_seq_idx <- sample(min(ex_round_eff_sizes$seq_num):max(ex_round_eff_sizes$seq_num), 1)
-# ex_seq_eff_sizes <- subset(ex_round_eff_sizes, seq_num == ex_seq_idx)
-# ex_mr_plot <- make_mr_plot(ex_seq_eff_sizes)
-```
-
 
 
 ```{r}
