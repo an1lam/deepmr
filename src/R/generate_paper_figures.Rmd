@@ -71,19 +71,22 @@ seq_confounding_global_metrics
 unconfounded_global_ces_plot <- 
   ggplot(unconfounded_global_metrics, aes(x = true_ce_est, y = ce_est)) +
   geom_point(size = 2) +
-  geom_errorbar(aes(ymin = ce_est - 2 * sqrt(ce_tau2), ymax = ce_est + 2 * sqrt(ce_tau2))) +
+  geom_errorbar(aes(ymin = ce_est - 2 * sqrt(ce_tau2), ymax = ce_est + 2 * sqrt(ce_tau2)), color="red") +
+  geom_errorbar(aes(ymin = ce_est - 2 * sqrt(ce_se), ymax = ce_est + 2 * sqrt(ce_se)), color="blue") +
   geom_abline(slope=1) +
   xlab("Global Mean Causal Effect") + ylab("Global Causal Effect Estimate")
 rand_confounding_global_ces_plot <- 
   ggplot(rand_confounding_global_metrics, aes(x = true_ce_est, y = ce_est)) +
   geom_point(size = 2) +
-  geom_errorbar(aes(ymin = ce_est - 2 * sqrt(ce_tau2), ymax = ce_est + 2 * sqrt(ce_tau2))) +
+  geom_errorbar(aes(ymin = ce_est - 2 * sqrt(ce_tau2), ymax = ce_est + 2 * sqrt(ce_tau2)), color="red") +
+  geom_errorbar(aes(ymin = ce_est - 2 * sqrt(ce_se), ymax = ce_est + 2 * sqrt(ce_se)), color="blue") +
   geom_abline(slope=1) +
   xlab("Global Mean Causal Effect") + ylab("Global Causal Effect Estimate")
 seq_confounding_global_ces_plot <- 
   ggplot(seq_confounding_global_metrics, aes(x = true_ce_est, y = ce_est)) +
   geom_point(size = 2) +
-  geom_errorbar(aes(ymin = ce_est - 2 * sqrt(ce_tau2), ymax = ce_est + 2 * sqrt(ce_tau2))) +
+  geom_errorbar(aes(ymin = ce_est - 2 * sqrt(ce_tau2), ymax = ce_est + 2 * sqrt(ce_tau2)), color="red") +
+  geom_errorbar(aes(ymin = ce_est - 2 * sqrt(ce_se), ymax = ce_est + 2 * sqrt(ce_se)), color="blue") +
   geom_abline(slope=1) +
   xlab("Global Mean Causal Effect") + ylab("Global Causal Effect Estimate")
 
@@ -92,7 +95,7 @@ unconfounded_calibration_plot <-
   geom_histogram(bins=20, colour="black", fill="white") +
   geom_vline(aes(xintercept=mean(calibration, na.rm=T)),   # Ignore NA values for mean
            color="red", linetype="dashed", size=1) +
-  xlab("Calibration") +
+  xlab("Coverage") +
   ylab("Count") +
   xlim(0, 1)
 rand_confounding_calibration_plot <- 
@@ -100,7 +103,7 @@ rand_confounding_calibration_plot <-
   geom_histogram(bins=10, colour="black", fill="white") +
   geom_vline(aes(xintercept=mean(calibration, na.rm=T)),   # Ignore NA values for mean
            color="red", linetype="dashed", size=1) +
-  xlab("Calibration") +
+  xlab("Coverage") +
   ylab("Count") +
   xlim(0, 1)
 seq_confounding_calibration_plot <- 
@@ -108,7 +111,7 @@ seq_confounding_calibration_plot <-
   geom_histogram(bins=10, colour="black", fill="white") +
   geom_vline(aes(xintercept=mean(calibration, na.rm=T)),   # Ignore NA values for mean
            color="red", linetype="dashed", size=1) +
-  xlab("Calibration") +
+  xlab("Coverage") +
   ylab("Count") +
   xlim(0, 1)
 
@@ -133,16 +136,16 @@ if (params$save_plots) {
 ```
 
 ```{r}
-sim_eff_sizes_fname <- str_c(
-  exp_tf, out_tf, "mr_inputs_calibrated.csv", sep="_"
-)
-ex_idx <- sample(0:49, 1)
-ex_round_eff_sizes <-
-  read.csv(file.path(params$sim_results_dir, str_c("round", sprintf("%d", ex_idx), sep="_"), sim_eff_sizes_fname)) %>%
-  drop_na()
-ex_seq_idx <- sample(min(ex_round_eff_sizes$seq_num):max(ex_round_eff_sizes$seq_num), 1)
-ex_seq_eff_sizes <- subset(ex_round_eff_sizes, seq_num == ex_seq_idx)
-ex_mr_plot <- make_mr_plot(ex_seq_eff_sizes)
+# sim_eff_sizes_fname <- str_c(
+#   exp_tf, out_tf, "mr_inputs_calibrated.csv", sep="_"
+# )
+# ex_idx <- sample(0:49, 1)
+# ex_round_eff_sizes <-
+#   read.csv(file.path(params$sim_results_dir, str_c("round", sprintf("%d", ex_idx), sep="_"), sim_eff_sizes_fname)) %>%
+#   drop_na()
+# ex_seq_idx <- sample(min(ex_round_eff_sizes$seq_num):max(ex_round_eff_sizes$seq_num), 1)
+# ex_seq_eff_sizes <- subset(ex_round_eff_sizes, seq_num == ex_seq_idx)
+# ex_mr_plot <- make_mr_plot(ex_seq_eff_sizes)
 ```
 
 
@@ -155,8 +158,8 @@ metrics_tables <- list(
   Both=both_confounding_global_metrics
 )
 results_summary <- imap(metrics_tables, function (global_metrics, name) {
-  ce_lower <- global_metrics$ce_est - 2 * sqrt(global_metrics$ce_tau2)
-  ce_upper <- global_metrics$ce_est + 2 * sqrt(global_metrics$ce_tau2)
+  ce_lower <- global_metrics$ce_est - 2 * sqrt(global_metrics$ce_se)
+  ce_upper <- global_metrics$ce_est + 2 * sqrt(global_metrics$ce_se)
   true_ce_captured <- (
     global_metrics$true_ce_est > ce_lower & global_metrics$true_ce_est < ce_upper
   )

@@ -1,14 +1,22 @@
 ---
 title: "Mendelian Randomization analysis of BPNet generated data"
 output: html_notebook
+params:
+  save_plots: TRUE
+  run_analysis: FALSE
+  fig_output_dir: "../../doc/manuscripts/deepmr_preprint/fig/"
+  analysis_output_dir: "../../dat/res-bpnet-2021-01-03-01-14-07_v2/analysis/"
 ---
 
 ```{r}
 library(MendelianRandomization)
 library(dplyr)
+library(foreach)
 library(meta)
 library(knitr)
+library(ggpubr)
 library(ggstance)
+library(gridExtra)
 library(kableExtra)
 library(tidyverse)
 ```
@@ -17,114 +25,198 @@ library(tidyverse)
 base_path <- "../../dat/res-bpnet-2021-01-03-01-14-07_v2/"
 files <- list.files(path=base_path, "*.csv")
 
-result <- matrix(ncol=5, nrow=length(files))
-all_ces <- c()
-
+result <- matrix(ncol=7, nrow=length(files))
+dir.create(params$analysis_output_dir, showWarnings = FALSE)
+meta_results_output_fname <- "bpnet_meta_analysis_metrics.csv"
+meta_results_output_fpath <- file.path(params$analysis_output_dir, meta_results_output_fname)
+egger_results_output_fname <- "bpnet_egger_results.csv"
+egger_results_output_fpath <- file.path(params$analysis_output_dir, egger_results_output_fname)
 
 is.nan.data.frame <- function(x) {
   do.call(cbind, lapply(x, is.nan))
 }
+egger_results <- data.frame(matrix(ncol=9), stringsAsFactors = FALSE)
+colnames(egger_results) <- c("seq", "tf1", "tf2", "ce", "cil", "ciu", "i.sq", "pleio", "std")
 
-for (i in 1:length(files)) {
-  f <- files[i]
-  seq_predictions <- read.csv(file.path(base_path, f)) %>%
-      drop_na()
+if (params$run_analysis) {
+  for (i in 1:length(files)) {
+    f <- files[i]
+    tf <- paste(unlist(strsplit(f, split="_"))[1:2], collapse = " on ")
+    tf1 <- unlist(strsplit(f, split="_"))[1]
+    tf2 <- unlist(strsplit(f, split="_"))[2]
+    
+    seq_predictions <- read.csv(file.path(base_path, f)) %>%
+        drop_na()
+  
+    ivw_vals = list()
+    egger_vals = list()
+  
+    n_seqs <- max(seq_predictions["seq_num"])
+    egger_result <- data.frame(matrix(ncol=9), stringsAsFactors = FALSE)
+    colnames(egger_result) <- c("seq", "tf1", "tf2", "ce", "cil", "ciu", "i.sq", "pleio", "std")
 
-  ivw_vals = list()
-  egger_vals = list()
-
-  n_seqs <- max(seq_predictions["seq_num"])
-  egger_result <- matrix(ncol=6, nrow=n_seqs)
-  ivw_result <- matrix(ncol=4, nrow=n_seqs)
-
-  for (seq in (1:n_seqs)) {
-    seq_i_predictions = subset(seq_predictions, seq_num == seq)
-
-    bxt <- unlist(seq_i_predictions["X_pred_mean"])
-    bxset <- unlist(seq_i_predictions["X_pred_var"])
-    byt <- unlist(seq_i_predictions["Y_pred_mean"])
-    byset <- unlist(seq_i_predictions["Y_pred_var"])
-    MRInputObject <- mr_input(bx = bxt,
-                              bxse = bxset,
-                              by = byt,
-                              byse = byset)
-    if (length(bxt) > 2) {
-      if (length(bxt) > 10) {
-        EggerObject <- mr_egger(MRInputObject, alpha = 0.05, robust = T)
-      } else {
-        EggerObject <- mr_egger(MRInputObject, alpha = 0.05)
+    ivw_result <- matrix(ncol=4, nrow=n_seqs)
+  
+    for (seq in (1:n_seqs)) {
+      seq_i_predictions = subset(seq_predictions, seq_num == seq)
+  
+      bxt <- unlist(seq_i_predictions["X_pred_mean"])
+      bxset <- unlist(seq_i_predictions["X_pred_var"])
+      byt <- unlist(seq_i_predictions["Y_pred_mean"])
+      byset <- unlist(seq_i_predictions["Y_pred_var"])
+      MRInputObject <- mr_input(bx = bxt,
+                                bxse = bxset,
+                                by = byt,
+                                byse = byset)
+      if (length(bxt) > 2) {
+        if (length(bxt) > 10) {
+          EggerObject <- mr_egger(MRInputObject, alpha = 0.05, robust = T)
+        } else {
+          EggerObject <- mr_egger(MRInputObject, alpha = 0.05)
+        }
+        
+        egger_result[seq, ] <- list(
+          seq,
+          tf1,
+          tf2,
+          EggerObject$Estimate,
+          EggerObject$CILower.Est,
+          EggerObject$CIUpper.Est,
+          EggerObject$I.sq,
+          EggerObject$Pleio.pval,
+          EggerObject$StdError.Est
+        )
       }
-      egger_result[seq, ] <- c(
-        EggerObject$Estimate,
-        EggerObject$CILower.Est,
-        EggerObject$CIUpper.Est,
-        EggerObject$I.sq,
-        EggerObject$Pleio.pval,
-        EggerObject$StdError.Est
-      )
-      all_ces <- c(all_ces, EggerObject$Estimate)
     }
+  
+    egger_results <- rbind(egger_results, egger_result)
+    meta_result <- meta::metagen(egger_result$ce, egger_result$std)
+    result[i, ] <- c(
+      tf, meta_result$TE.random, meta_result$seTE.random, meta_result$pval.random, 
+      meta_result$tau, meta_result$upper.random, meta_result$lower.random
+    )
   }
+  colnames(result) <- c("TF", "Mean", "Std", "$ p $", "tau2", "Upper", "Lower")
+  write.table(result, meta_results_output_fpath, row.names=FALSE, quote=TRUE,  sep = ",")
+  write.table(egger_results, egger_results_output_fpath, row.names=FALSE, quote=TRUE, sep = ",")
 
-  colnames(egger_result) <- c("ce", "cil", "ciu", "i.sq", "pleio", "std")
-  egger_result <- as_tibble(egger_result)
-  meta_result <- meta::metagen(egger_result$ce, egger_result$std)
-  tf <- paste(unlist(strsplit(f, split="_"))[1:2], collapse = " on ")
-  result[i, ] <- c(
-    tf, meta_result$TE.random, meta_result$seTE.random, meta_result$pval.random, 
-    meta_result$tau
-  )
+} else {
+  result <- read.table(meta_results_output_fpath, sep = ",", header = T)
+  egger_results <- read.table(egger_results_output_fpath, sep = ",", header = T)
 }
 ```
+
+
+```{r}
+egger_results <- egger_results %>% drop_na()
+egger_results$ce[1]
+```
+
 
 ```{r}
 p <- qplot(ce, data=egger_result, binwidth=.25)
 ce_smoothed <- ks::kde(
-  x=all_ces,
+  x=egger_results$ce,
   binned=TRUE,
   compute.cont=TRUE,
-  xmin=min(all_ces)-1,
-  xmax=max(all_ces)+1,
+  xmin=min(egger_results$ce)-1,
+  xmax=max(egger_results$ce)+1,
   bgridsize=c(200)
 )
 
-png(file.path("../../doc/manuscripts/deepmr_preprint/fig/", "suppfig_all_tfs_ces_kde.png"), width = 512, height = 320)
-par(mar=c(5, 6, 5, 1)+.1)
+# png(file.path(params$fig_output_dir, "suppfig_all_tfs_ces_kde.png"), width = 512, height = 320)
+# par(mar=c(5, 6, 5, 1)+.1)
 
 plot(ce_smoothed, main = "Causal Effect Estimates (All TFs)",xlab = "Causal Effect", ylab = "Density", cex.main = 2, cex.lab = 2, ratio = 2)
 
 ```
 
 ```{r}
-dmode <- function(x) {
-  den <- density(x, kernel=c("gaussian"))
-    ( den$x[den$y==max(den$y)] )   
-}  
-quantile(all_ces)
-dmode(all_ces)
-median(all_ces) 
-length(all_ces[all_ces < 0])
-length(all_ces)
+all_seq_ces <- egger_results[,c("seq", "tf1", "tf2", "ce")]
+all_seq_ces_wide <- pivot_wider(all_seq_ces, names_from=c("tf1", "tf2"), values_from="ce")
+tfs <- list("Sox2", "Oct4", "Nanog", "Klf4")
+plots <- foreach(tf1 = tfs, tf2 = tfs) %do% {
+  tf1_plots <- foreach(tf2 = tfs) %do% {
+      if (tf1 != tf2) {
+        x_name <- str_c(tf1, tf2, sep="_")
+        y_name <- str_c(tf2, tf1, sep="_")
+        return(ggplot(data=all_seq_ces_wide, mapping=aes_string(x = x_name, y = y_name)) +
+                 geom_point(alpha=.1))
+
+        }
+  }
+  return(tf1_plots)
+}
+
+if (params$save_plots) {
+  output_fname <- "bpnet_local_ce_pair_plots.png"
+  output_fpath <- file.path(params$fig_output_dir, output_fname)
+  png(output_fpath, width = 1024, height = 512)
+  par(mar = c(5, 6, 5, 1) + .1)
+}
+
+plots <- Filter(Negate(function(x) is.null(unlist(x))), plots)
+ggarrange(plotlist=flatten(plots))
+if (params$save_plots) {
+  dev.off()
+}
+```
+
+
+```{r}
+# dmode <- function(x) {
+#   den <- density(x, kernel=c("gaussian"))
+#     ( den$x[den$y==max(den$y)] )   
+# }  
+# quantile(all_ces)
+# dmode(all_ces)
+# median(all_ces) 
+# length(all_ces[all_ces < 0])
+# length(all_ces)
 
 meta_result$TE.random
 meta_result$tau
 meta_result$seTE.random
+meta_result$upper.random
 ```
 
 ```{r}
 
 options(digits = 5)
-colnames(result) <- c("TF", "Mean", "Std", "$ p $", "tau2")
 formatted_result <- data.frame(result)
 formatted_result$Mean <- as.numeric(as.character(formatted_result$Mean))
 formatted_result$tau2 <- as.numeric(as.character(formatted_result$tau2))
+formatted_result$Std <- as.numeric(as.character(formatted_result$Std))
+formatted_result$Lower <- as.numeric(as.character(formatted_result$Lower))
+formatted_result$Upper <- as.numeric(as.character(formatted_result$Upper))
+
 
 p <- ggplot(data=formatted_result, aes(y=TF, x=Mean), width = 956, height = 432) + 
     geom_barh( aes(y=TF, x=Mean), stat="identity", fill="skyblue", alpha=0.5) +
     geom_errorbarh( aes(xmin=Mean- 2 * sqrt(tau2), xmax=Mean+ 2 * sqrt(tau2)), colour="orange", alpha=0.9, size=1.3 ) +
+    geom_errorbarh( aes(xmin=Mean- 2 * Std, xmax=Mean+ 2 * Std), colour="blue", alpha=0.9, size=1.3 ) +
     coord_fixed(ratio = .4)
+formatted_result$Lower
 p + labs(title="TF→TF Causal Effects", y="TF", x= "Effect (Mean)")+
    theme_classic() +
    scale_fill_manual(values=c('#999999','#E69F00'))
-ggsave(file.path("../../doc/manuscripts/deepmr_preprint/fig/", "fig3_bpnet_global_ces.png"))
+ggsave(file.path(params$fig_output_dir, "fig3_bpnet_global_ces.png"))
 ```
+
+```{r}
+options(digits = 5)
+formatted_result <- data.frame(result)
+formatted_result$Mean <- as.numeric(as.character(formatted_result$Mean))
+formatted_result$tau2 <- as.numeric(as.character(formatted_result$tau2))
+formatted_result$Std <- as.numeric(as.character(formatted_result$Std))
+formatted_result$Lower <- as.numeric(as.character(formatted_result$Lower))
+formatted_result$Upper <- as.numeric(as.character(formatted_result$Upper))
+formatted_result <- formatted_result %>%
+  separate(TF, c("TF1", "TF2"), " on ")
+
+formatted_result
+p <- ggplot(data=formatted_result, aes(x = TF1, y = TF2), width = 956, height = 432) + 
+    geom_tile(aes(fill = Mean))
+p
+```
+
