@@ -12,7 +12,7 @@ from tqdm import tqdm
 from tf_coop_in_silico_mutagenesis import main as in_silico_mutagenesis_main
 from tf_coop_model import main as model_main
 from tf_coop_simulation import main as sim_main
-from tf_coop_true_ces_v2 import main as true_ces_main
+from tf_coop_true_ces import main as true_ces_main
 
 
 def add_args(parser):
