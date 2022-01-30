@@ -164,16 +164,6 @@ if (params$save_plots) {
 
 
 ```{r}
-# dmode <- function(x) {
-#   den <- density(x, kernel=c("gaussian"))
-#     ( den$x[den$y==max(den$y)] )   
-# }  
-# quantile(all_ces)
-# dmode(all_ces)
-# median(all_ces) 
-# length(all_ces[all_ces < 0])
-# length(all_ces)
-
 meta_result$TE.random
 meta_result$tau
 meta_result$seTE.random
@@ -201,22 +191,5 @@ p + labs(title="TF→TF Causal Effects", y="TF", x= "Effect (Mean)")+
    theme_classic() +
    scale_fill_manual(values=c('#999999','#E69F00'))
 ggsave(file.path(params$fig_output_dir, "fig3_bpnet_global_ces.png"))
-```
-
-```{r}
-options(digits = 5)
-formatted_result <- data.frame(result)
-formatted_result$Mean <- as.numeric(as.character(formatted_result$Mean))
-formatted_result$tau2 <- as.numeric(as.character(formatted_result$tau2))
-formatted_result$Std <- as.numeric(as.character(formatted_result$Std))
-formatted_result$Lower <- as.numeric(as.character(formatted_result$Lower))
-formatted_result$Upper <- as.numeric(as.character(formatted_result$Upper))
-formatted_result <- formatted_result %>%
-  separate(TF, c("TF1", "TF2"), " on ")
-
-formatted_result
-p <- ggplot(data=formatted_result, aes(x = TF1, y = TF2), width = 956, height = 432) + 
-    geom_tile(aes(fill = Mean))
-p
 ```
 
