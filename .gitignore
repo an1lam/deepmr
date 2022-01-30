@@ -303,3 +303,5 @@ fig/
 src/wandb
 
 *.hf5
+
+src/pyx/*.c

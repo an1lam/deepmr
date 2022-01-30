@@ -1,5 +1,3 @@
 #!/bin/bash
 
-pushd src
-python pyx/cython_setup.py build_ext --inplace
-popd
+python src/pyx/cython_setup.py build_ext --inplace

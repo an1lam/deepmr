@@ -2,10 +2,7 @@
 ### Python
 Both our simulation and BPNet experiments require having a working Python experiment set up. Specifically, we ran all experiments using the conda version of Python 3.8.3 on an AWS instance running AWS's "Deep Learning Base AMI (Ubuntu 16.04) Version 32.0" machine image with a Tesla K80 GPU. For completeness, we've included the machine's output from `nvidia-smi` in [the appendix](#nvidia-smi-output).
 
-Running our code also requires compiling some Cython code to speed up one-hot encoding of sequences. To do this, run `scr/compile_cython.sh` from the project base directory.
-
-
-Assuming your environment satisfies these prerequisites, the rest of the environment setup is specific to which experiment you'd like to reproduce.
+The first step to reproducing our experiments is cloning this repository. Once you've done that and assuming your environment satisfies these prerequisites, the rest of the environment setup is specific to which experiment you'd like to reproduce.
 
 #### Simulation-specific setup
 For the simulation experiment, we've provided a conda environment specification, `src/simulation-conda-requirements.yml`, which you can use to bootstrap a conda environment that should enable reproducing our simulation. To create an environment based off this file, you can run:
@@ -22,6 +19,8 @@ git clone https://github.com/kundajelab/simdna.git
 cd simdna
 python setup.py develop
 ```
+
+Running our simulation code also requires compiling some Cython code to speed up one-hot encoding of sequences. To do this, run `scr/compile_cython.sh` from the project base directory.
 
 #### BPNet-specific setup
 For the BPNet experiment, we've found it easier to install the necessary packages manually since some are direct from Github repositories. In addition to the following instructions, you'll need an environment in which you can run a Jupyter notebook. 
