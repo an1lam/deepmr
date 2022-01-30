@@ -3,7 +3,7 @@ title: "R Notebook"
 output: html_notebook
 params:
   save_plots: TRUE
-  output_dir: "../../doc/manuscripts/deepmr_preprint/fig/"
+  output_dir: "../../fig/"
 ---
 
 ```{r}
@@ -71,24 +71,27 @@ seq_confounding_global_metrics
 unconfounded_global_ces_plot <- 
   ggplot(unconfounded_global_metrics, aes(x = true_ce_est, y = ce_est)) +
   geom_point(size = 2) +
-  geom_errorbar(aes(ymin = ce_est - 2 * sqrt(ce_tau2), ymax = ce_est + 2 * sqrt(ce_tau2)), color="red") +
-  geom_errorbar(aes(ymin = ce_est - 2 * sqrt(ce_se), ymax = ce_est + 2 * sqrt(ce_se)), color="blue") +
+  geom_errorbar(aes(ymin = ce_est - 2 * ce_tau, ymax = ce_est + 2 * ce_tau), color="red") +
+  geom_errorbar(aes(ymin = ce_est - 2 * ce_se, ymax = ce_est + 2 * ce_se), color="blue") +
   geom_abline(slope=1) +
-  xlab("Global Mean Causal Effect") + ylab("Global Causal Effect Estimate")
+  xlab("Global Mean Causal Effect") + ylab("Global Causal Effect Estimate") +
+  ggtitle("No confounding")
 rand_confounding_global_ces_plot <- 
   ggplot(rand_confounding_global_metrics, aes(x = true_ce_est, y = ce_est)) +
   geom_point(size = 2) +
-  geom_errorbar(aes(ymin = ce_est - 2 * sqrt(ce_tau2), ymax = ce_est + 2 * sqrt(ce_tau2)), color="red") +
-  geom_errorbar(aes(ymin = ce_est - 2 * sqrt(ce_se), ymax = ce_est + 2 * sqrt(ce_se)), color="blue") +
+  geom_errorbar(aes(ymin = ce_est - 2 * ce_tau, ymax = ce_est + 2 * ce_tau), color="red") +
+  geom_errorbar(aes(ymin = ce_est - 2 * ce_se, ymax = ce_est + 2 * ce_se), color="blue") +
   geom_abline(slope=1) +
-  xlab("Global Mean Causal Effect") + ylab("Global Causal Effect Estimate")
+  xlab("Global Mean Causal Effect") + ylab("Global Causal Effect Estimate") +
+  ggtitle("Sequence-independent confounding")
 seq_confounding_global_ces_plot <- 
   ggplot(seq_confounding_global_metrics, aes(x = true_ce_est, y = ce_est)) +
   geom_point(size = 2) +
-  geom_errorbar(aes(ymin = ce_est - 2 * sqrt(ce_tau2), ymax = ce_est + 2 * sqrt(ce_tau2)), color="red") +
-  geom_errorbar(aes(ymin = ce_est - 2 * sqrt(ce_se), ymax = ce_est + 2 * sqrt(ce_se)), color="blue") +
+  geom_errorbar(aes(ymin = ce_est - 2 * ce_tau, ymax = ce_est + 2 * ce_tau), color="red") +
+  geom_errorbar(aes(ymin = ce_est - 2 * ce_se, ymax = ce_est + 2 * ce_se), color="blue") +
   geom_abline(slope=1) +
-  xlab("Global Mean Causal Effect") + ylab("Global Causal Effect Estimate")
+  xlab("Global Mean Causal Effect") + ylab("Global Causal Effect Estimate") +
+  ggtitle("Sequence-dependent confounding")
 
 unconfounded_calibration_plot <- 
   ggplot(unconfounded_global_metrics, aes(x=calibration)) + 
@@ -134,6 +137,9 @@ if (params$save_plots) {
   dev.off()
 }
 ```
+```{r}
+metrics_tables
+```
 
 
 
@@ -145,8 +151,8 @@ metrics_tables <- list(
   Both=both_confounding_global_metrics
 )
 results_summary <- imap(metrics_tables, function (global_metrics, name) {
-  ce_lower <- global_metrics$ce_est - 2 * sqrt(global_metrics$ce_se)
-  ce_upper <- global_metrics$ce_est + 2 * sqrt(global_metrics$ce_se)
+  ce_lower <- global_metrics$ce_est - 2 * global_metrics$ce_tau
+  ce_upper <- global_metrics$ce_est + 2 * global_metrics$ce_tau
   true_ce_captured <- (
     global_metrics$true_ce_est > ce_lower & global_metrics$true_ce_est < ce_upper
   )

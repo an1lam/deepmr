@@ -312,12 +312,11 @@ lapply(sim_results_dirs, function(sim_results_dir) {
     
     return(list(
       ce_est=meta_result$TE.random,
-      ce_tau2=meta_result$se.tau2,
+      ce_tau=meta_result$tau,
       ce_se=meta_result$seTE.random,
       ce_lower=meta_result$lower.random,
       ce_upper=meta_result$upper.random,
       true_ce_est=mean(true_ces$CI, na.rm = T),
-      true_ce_std=sd(true_ces$CI, na.rm=T),
       calibration=calibration
     ))
   }
