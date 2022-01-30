@@ -1,24 +1,58 @@
 ## Environment setup
 ### Python
-Both our simulation and BPNet experiments require having a working Python experiment set up. Specifically, we ran all experiments using the conda version of Python 3.8.3 on an AWS instance running AWS's "Deep Learning Base AMI (Ubuntu 16.04) Version 32.0" machine image with a Tesla K80 GPU.
+Both our simulation and BPNet experiments require having a working Python experiment set up. Specifically, we ran all experiments using the conda version of Python 3.8.3 on an AWS instance running AWS's "Deep Learning Base AMI (Ubuntu 16.04) Version 32.0" machine image with a Tesla K80 GPU. For completeness, we've included the machine's output from `nvidia-smi` in [the appendix](#nvidia-smi-output).
 
-Assuming your environment satisfies these prerequisites, at least the Python ones, we've provided a conda environment specification, `src/dev-conda-requirements.yml` you can use to bootstrap a conda environment that should enable reproducing our results. To create an environment based off of this file, you can run:
+Assuming your environment satisfies these prerequisites, the rest of the environment setup is specific to which experiment you'd like to reproduce.
+
+#### Simulation-specific setup
+For the simulation experiment, we've provided a conda environment specification, `src/simulation-conda-requirements.yml`, which you can use to bootstrap a conda environment that should enable reproducing our simulation. To create an environment based off this file, you can run:
 ```
-conda env create -f dev-conda-requirements.yml
+conda env create -f simulation-conda-requirements.yml
 ```
 
-Once you've done this and activated this environment, you need to install one more package -- [simdna](https://github.com/kundajelab/simdna) -- before you're ready to run simulation experiments in particular. To do so, you can follow the instructions found in the package's README, which (at the time of writing) say to run the following commands in a terminal (with your conda environment activated):
+This will create a conda environment that you can then activate.
+
+You'll need to install one more package -- [simdna](https://github.com/kundajelab/simdna) -- before you're ready to run simulation experiments. To do so, you can follow the instructions found in the package's README, which (at the time of writing) say to run the following commands in a terminal (with your conda environment activated):
+
 ```
 git clone https://github.com/kundajelab/simdna.git
 cd simdna
 python setup.py develop
 ```
 
-### R
-Our actual analysis for the paper used R, in part due to the mature Mendelian Randomization being available for R and not Python at the time we were doing the work. All of the R analysis was run on an Ubuntu laptop using R version 4.1.1. For completeness, we've included the output of `sessionInfo` in [the appendix](#session-info-output). All R code can be found in `src/R` including an `install_packages.R` script which should install all (or at least most) of the packages required for reproducing our analyses.
+#### BPNet-specific setup
+For the BPNet experiment, we've found it easier to install the necessary packages manually since some are direct from Github repositories. In addition to the following instructions, you'll need an environment in which you can run a Jupyter notebook. 
 
-## TF Cooperativity Simulation
-### Generating simulated data
+First, you should create a new conda environment and activate it as follows:
+```
+conda create --name deepmr-bpnet "python=3.6"
+conda activate deepmr-bpnet
+```
+
+Then, you'll want to install the necessary packages:
+```
+conda install -c bioconda pybedtools bedtools pybigwig pysam genomelake
+pip install tensorflow-gpu==1.15
+pip install -e git+https://github.com/kundajelab/DeepExplain.git#egg=deepexplain
+pip install scikit-learn==0.21.3
+pip install -e git+https://github.com/kundajelab/bpnet.git#egg=bpnet
+pip install wandb
+pip install --no-deps git+https://github.com/uncertainty-toolbox/uncertainty-toolbox.git
+conda install -c conda-forge biopython
+pip install torch==1.3.1
+pip install ipykernel
+```
+
+Finally, you'll want to create a Jupyter kernel to use when you run the two BPNet training and in-silico mutagenesis notebooks:
+```
+python -m ipykernel install --user --name=deepmr-bpnet3
+```
+
+### R
+Our actual analysis for the paper used R, in part due to the mature Mendelian Randomization packages being available for R and not Python at the time we were doing the work. All of the R analysis was run on an Ubuntu laptop using R version 4.1.1. For completeness, we've included the output of `sessionInfo` in [the appendix](#session-info-output). All R code can be found in `src/R` including an `install_packages.R` script which should install all (or at least most) of the packages required for reproducing our analyses.
+
+## TF Cooperativity Simulation Experiments
+### Generating data
 In our paper we discussed four simulation scenarios: no confounding, sequence-dependent confounding, sequence-independent confounding, and both types of confounding. The following command will simulate data for the first scenario using the settings we used for the paper.
 
 ```{lang=sh}
@@ -39,9 +73,42 @@ Once you've done that, you should be able to run `compute_sim_metrics.Rmd`'s cel
 `generate_paper_figures.Rmd` reproduces the paper's figures. It can only be run after you've successfully run `compute_sim_metrics.Rmd`. Depending on whether you set its `save_plots` parameter to true or false, the script will either just output the figures inline or save them inside of `output_dir` as PNG files.
 
 ## BPNet experiments
+### Downloading training & validation data
+In addition to setting up an environment, running the BPNet experiments from start to finish requires downloading training data. To do so, you can `cd` to whichever directory you want to download the BPNet data to and follow the directions for downloading the data [here](https://github.com/kundajelab/bpnet-manuscript#2-download-the-data).
 
+### Generating data
+Producing data that can then be processed by MR and the subsequent meta-analysis requires two steps: training a BPNet ensemble and using it to generate effect sizes and uncertainties for each variant produced by in-silico mutagenesis. These steps live inside two Jupyter notebooks respectively: `src/train_bpnet_ensemble.ipynb` and `src/in_silico_mutagenesis_bpnet_all_tfs.ipynb`. Assuming you've created a kernel for your `deepmr-bpnet` conda environment, you'll now want to start `jupyter` via `jupyter notebook`.
+
+Once you've done this, the next step is to open the `src/train_bpnet_ensemble.ipynb` notebook. Before you run this however, you'll need to update some configuration. Specifically, you'll want to the `.gin` and `.yml` files in `src/bpnet/` and change the relevant paths to point to the directory you've downloaded BPNet data into. Assuming you do so successfully, you can now run the notebook, which will run for a few hours but eventually result in 5 saved CNNs trained on the BPNet data.
+
+From here, you're ready to run `src/in_silico_mutagenesis_bpnet_all_tfs.ipynb`, which will do in-silico mutagenesis and compute effect sizes. Again, here you'll want to update the configuration variables in the second (first non-import) cell to use a valid `output_dir` and `model_base_dir`. From here, you're ready to run this notebook as well. Running it will produce output files which you can then copy to wherever you'll need them to run the MR and meta-analysis steps of the analysis.
+
+### Analyzing data
+The analysis script for the BPNet data is `src/R/all_tfs_analysis_bpnet.Rmd`. Before running this, you'll want to update `base_path` in the first non-import cell to point to wherever you've stored the BPNet effect sizes and uncertainties. You also will probably want to change the `save_plots` parameter to `FALSE` or the paths for the output to valid strings (for your computer). Depending on what you specify for `save_plots`, running this script will replicate the figure from the paper and potentially save it as a PNG.
 
 ## Appendix
+### `nvidia-smi` Output
+```
+| NVIDIA-SMI 450.80.02    Driver Version: 450.80.02    CUDA Version: 11.0     |
+|-------------------------------+----------------------+----------------------+
+| GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
+|                               |                      |               MIG M. |
+|===============================+======================+======================|
+|   0  Tesla K80           On   | 00000000:00:1E.0 Off |                    0 |
+| N/A   34C    P8    28W / 149W |      0MiB / 11441MiB |      0%      Default |
+|                               |                      |                  N/A |
++-------------------------------+----------------------+----------------------+
+                                                                               
++-----------------------------------------------------------------------------+
+| Processes:                                                                  |
+|  GPU   GI   CI        PID   Type   Process name                  GPU Memory |
+|        ID   ID                                                   Usage      |
+|=============================================================================|
+|  No running processes found                                                 |
++-----------------------------------------------------------------------------+
+```
+
 ### Session Info Output
  ```
  R version 4.1.1 (2021-08-10)
