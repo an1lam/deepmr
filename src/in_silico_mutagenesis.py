@@ -6,8 +6,6 @@ import math
 import os
 import pickle
 
-import kipoi
-from kipoiseq.dataloaders import SeqIntervalDl
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
@@ -18,7 +16,6 @@ from torch.nn import functional as F
 from tqdm.auto import tqdm
 
 
-from custom_dropout import apply_dropout, replace_dropout_layers
 from filter_instrument_candidates import filter_variants_by_score
 
 
@@ -220,106 +217,3 @@ def write_results(result_fpath, diffs, stderrs, x_col=0, y_col=1, sig_idxs=None)
                                 "Y_pred_var": y_stderr,
                             }
                         )
-
-
-def main(args):
-    if args.override_random_seed:
-        torch.manual_seed(42)
-
-    genome_fpath = os.path.join(args.input_data_dir, args.genome_fname)
-    peaks_fpath = os.path.join(args.input_data_dir, args.peaks_fname)
-    dl = SeqIntervalDl(peaks_fpath, genome_fpath, auto_resize_len=args.auto_resize_len)
-    data = dl.load_all()
-    seqs = np.expand_dims(data["inputs"].transpose(0, 2, 1), 2).astype(np.float32)
-    seqs = seqs.squeeze()
-    if args.n_seqs > 0:
-        seqs = seqs[: args.n_seqs]
-
-    preds_fpath = os.path.join(args.input_data_dir, args.preds_fname)
-    if args.preds_action == "write":
-        deepsea = kipoi.get_model(args.kipoi_model_name, source="kipoi")
-        deepsea.model = replace_dropout_layers(deepsea.model)
-        deepsea.model.apply(apply_dropout)
-        x_col = get_matching_cols(
-            deepsea.schema.targets.column_labels, [args.x_column_name]
-        )[0]
-        y_col = get_matching_cols(
-            deepsea.schema.targets.column_labels, [args.y_column_name]
-        )[0]
-        if args.verbose:
-            logging.info(
-                "Using '%s' Kipoi DeepSEA model for predictions", args.kipoi_model_name
-            )
-            logging.info("%s architecture:\n %r", args.kipoi_model_name, deepsea.model)
-
-        n_seqs, n_nts, seq_len = seqs.shape
-        logging.info(f"Generating predictions for {n_seqs} seqs")
-        preds = mutate_and_predict(
-            deepsea,
-            seqs,
-            args.epochs,
-            args.batch_size,
-            output_sel_fn=filter_predictions_to_matching_cols((x_col, y_col)),
-        )
-
-        proportions_fpath = os.path.join(args.input_data_dir, args.proportions_fname)
-        normalizers = build_deepsea_normalizers(proportions_fpath)
-        for i, (_, col_name) in enumerate((x_col, y_col)):
-            preds[:, :, :, i] = normalizers[col_name](preds[:, :, :, i])
-
-        with open(preds_fpath, "wb") as f:
-            pickle.dump(preds, f)
-    else:
-        with open(preds_fpath, "rb") as f:
-            preds = pickle.load(f)
-
-    means, diffs, stderrs = compute_summary_statistics(preds, seqs)
-
-    if args.verbose:
-        print(f"Diffs shape: {diffs.shape}")
-        print(f"Diffs: {diffs[5, 0:1, :, :]}")
-    if args.results_fname:
-        results_fpath = os.path.join(args.output_data_dir, args.results_fname)
-        sig_var_idxs = filter_variants_by_score(diffs[:, :, :, 0])
-        write_results(results_fpath, diffs, stderrs, sig_idxs=sig_var_idxs)
-
-
-if __name__ == "__main__":
-    logging.getLogger("").setLevel(logging.INFO)
-
-    parser = argparse.ArgumentParser()
-
-    # Generic
-    parser.add_argument("--verbose", action="store_true", default=False)
-
-    # Kipoi related
-    parser.add_argument("--kipoi_model_name", default="DeepSEA/beluga")
-    parser.add_argument("--auto_resize_len", type=int, default=2000)
-    parser.add_argument(
-        "--feature_column_names",
-        nargs="+",
-        default=["HepG2_DNase_None", "HepG2_FOXA1_None"],
-    )
-    parser.add_argument("--x_column_name", default="HepG2_FOXA1_None")
-    parser.add_argument("--y_column_name", default="HepG2_DNase_None")
-
-    # File paths & names
-    parser.add_argument("--input_data_dir", default="../dat/deepsea/")
-    parser.add_argument("--output_data_dir", default="../dat/deepsea/")
-    parser.add_argument("--genome_fname", default="hg19.fa")
-    parser.add_argument("--peaks_fname", default="50_random_seqs_2.bed")
-    today = datetime.date(datetime.now())
-    parser.add_argument("--preds_fname", default=f"predictions_{today}.pickle")
-    parser.add_argument(
-        "--proportions_fname", default="deepsea_normalization_constants.tsv"
-    )
-    parser.add_argument("--results_fname")
-
-    # Mutagenesis related
-    parser.add_argument("--preds_action", choices=["read", "write"], default="write")
-    parser.add_argument("--override_random_seed", action="store_true")
-    parser.add_argument("-n", "--n_seqs", type=int, default=0)
-    parser.add_argument("--epochs", type=int, default=50)
-    parser.add_argument("--batch_size", type=int, default=400)
-
-    main(parser.parse_args())
