@@ -7,19 +7,14 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 import seaborn as sns
-import simdna
 import statsmodels.api as sm
 import torch
 import uncertainty_toolbox.data as udata
 import uncertainty_toolbox.metrics as umetrics
 import uncertainty_toolbox.viz as uviz
-from IPython.display import clear_output
 from matplotlib import pyplot as plt
 from scipy import stats
-from simdna import synthetic
 from tqdm.auto import tqdm, trange
-from uncertainty_toolbox.metrics_calibration import \
-    get_proportion_lists_vectorized
 from uncertainty_toolbox.recalibration import iso_recal
 
 from ensemble import CalibratedRegressionEnsemble, Ensemble

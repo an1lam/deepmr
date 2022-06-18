@@ -1,3 +1,7 @@
+"""
+Main file for running in-silico mutagenesis experiments using simulated data.
+"""
+
 import argparse
 import copy
 import json
