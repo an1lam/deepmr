@@ -184,7 +184,7 @@ def filter_predictions_to_matching_cols(relevant_cols):
     return _filter
 
 
-def write_results(result_fpath, diffs, stderrs, x_col=0, y_col=1, sig_idxs=None):
+def write_results(result_fpath, diffs, stderrs, x_col=0, y_col=1, sig_idxs=None, **seq_kwargs):
     fieldnames = [
         "seq_num",
         "X_pred_mean",
@@ -192,6 +192,7 @@ def write_results(result_fpath, diffs, stderrs, x_col=0, y_col=1, sig_idxs=None)
         "Y_pred_mean",
         "Y_pred_var",
     ]
+    fieldnames.extend(list(seq_kwargs.keys()))
     if sig_idxs is None:
         sig_idxs = np.full(diffs.shape[:3], True, dtype=bool)
 
@@ -215,5 +216,6 @@ def write_results(result_fpath, diffs, stderrs, x_col=0, y_col=1, sig_idxs=None)
                                 "X_pred_var": x_stderr,
                                 "Y_pred_mean": y_eff_size,
                                 "Y_pred_var": y_stderr,
+                                **{fn: seq_kwargs[fn][seq_idx] for fn in fieldnames},
                             }
                         )
