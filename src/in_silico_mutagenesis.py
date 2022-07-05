@@ -141,8 +141,8 @@ def compute_summary_statistics(preds, seqs, lambdas=1):
 
     seq_idxs = seqs[np.newaxis, :].repeat(epochs, axis=0).astype(np.bool)
     ref_preds = preds[seq_idxs].reshape(epochs, n_seqs, 1, seq_len, -1)
-    assert np.allclose(ref_preds[0, 0, 0, :, 0], ref_preds[0, 0, 0, 0, 0])
     mut_preds = preds[~seq_idxs].reshape(epochs, n_seqs, n_nts - 1, seq_len, -1)
+    assert np.allclose(ref_preds[0, 0, 0, :, 0], ref_preds[0, 0, 0, 0, 0]), (ref_preds[0, 0, 0, :, 0], ref_preds[0, 0, 0, 0, 0])
     # Relies on the fact that `avg(A - B) = avg(A) - avg(B)`.
     mean_diffs = np.mean(mut_preds - ref_preds, axis=0)
 
@@ -192,7 +192,8 @@ def write_results(result_fpath, diffs, stderrs, x_col=0, y_col=1, sig_idxs=None,
         "Y_pred_mean",
         "Y_pred_var",
     ]
-    fieldnames.extend(list(seq_kwargs.keys()))
+    extra_fieldnames = list(seq_kwargs.keys())
+    fieldnames.extend(extra_fieldnames)
     if sig_idxs is None:
         sig_idxs = np.full(diffs.shape[:3], True, dtype=bool)
 
@@ -216,6 +217,6 @@ def write_results(result_fpath, diffs, stderrs, x_col=0, y_col=1, sig_idxs=None,
                                 "X_pred_var": x_stderr,
                                 "Y_pred_mean": y_eff_size,
                                 "Y_pred_var": y_stderr,
-                                **{fn: seq_kwargs[fn][seq_idx] for fn in fieldnames},
+                                **{fn: seq_kwargs[fn][seq_idx] for fn in extra_fieldnames},
                             }
                         )
