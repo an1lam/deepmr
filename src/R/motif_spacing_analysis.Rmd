@@ -1,10 +1,10 @@
 ---
-title: "Mendelian Randomization analysis of BPNet generated data"
+title: "Mendelian Randomization analysis of BPNet generated data for motif spacing"
 output: html_notebook
 params:
   save_plots: TRUE
-  run_analysis: FALSE
-  fig_output_dir: "../../doc/manuscripts/deepmr_preprint/fig/"
+  run_analysis: TRUE
+  fig_output_dir: "../../fig/"
   analysis_output_dir: "../../dat/res-bpnet-2022-07-04-21-30-22/analysis/"
 ---
 
@@ -27,16 +27,16 @@ files <- list.files(path=base_path, "*.csv")
 
 result <- matrix(ncol=7, nrow=length(files))
 dir.create(params$analysis_output_dir, showWarnings = FALSE)
-meta_results_output_fname <- "bpnet_meta_analysis_metrics.csv"
+meta_results_output_fname <- "bpnet_motif_spacing_meta_analysis_metrics.csv"
 meta_results_output_fpath <- file.path(params$analysis_output_dir, meta_results_output_fname)
-egger_results_output_fname <- "bpnet_egger_results.csv"
+egger_results_output_fname <- "bpnet_motif_spacing_egger_results.csv"
 egger_results_output_fpath <- file.path(params$analysis_output_dir, egger_results_output_fname)
 
 is.nan.data.frame <- function(x) {
   do.call(cbind, lapply(x, is.nan))
 }
-egger_results <- data.frame(matrix(ncol=9), stringsAsFactors = FALSE)
-colnames(egger_results) <- c("seq", "tf1", "tf2", "ce", "cil", "ciu", "i.sq", "pleio", "std")
+egger_results <- data.frame(matrix(ncol=10), stringsAsFactors = FALSE)
+colnames(egger_results) <- c("seq", "tf1", "tf2", "ce", "cil", "ciu", "i.sq", "pleio", "std", "dist")
 
 if (params$run_analysis) {
   for (i in 1:length(files)) {
@@ -52,8 +52,8 @@ if (params$run_analysis) {
     egger_vals = list()
   
     n_seqs <- max(seq_predictions["seq_num"])
-    egger_result <- data.frame(matrix(ncol=9), stringsAsFactors = FALSE)
-    colnames(egger_result) <- c("seq", "tf1", "tf2", "ce", "cil", "ciu", "i.sq", "pleio", "std")
+    egger_result <- data.frame(matrix(ncol=10), stringsAsFactors = FALSE)
+    colnames(egger_result) <- c("seq", "tf1", "tf2", "ce", "cil", "ciu", "i.sq", "pleio", "std", "dist")
 
     ivw_result <- matrix(ncol=4, nrow=n_seqs)
   
@@ -64,11 +64,12 @@ if (params$run_analysis) {
       bxset <- unlist(seq_i_predictions["X_pred_var"])
       byt <- unlist(seq_i_predictions["Y_pred_mean"])
       byset <- unlist(seq_i_predictions["Y_pred_var"])
-      MRInputObject <- mr_input(bx = bxt,
-                                bxse = bxset,
-                                by = byt,
-                                byse = byset)
-      if (length(bxt) > 10) {
+      motif_distance <- unlist(seq_i_predictions["motif_distance"])
+      if ((length(bxt) > 10) & (length(motif_distance) > 1) & (is.numeric(motif_distance[1]))) {
+        MRInputObject <- mr_input(bx = bxt,
+                                  bxse = bxset,
+                                  by = byt,
+                                  byse = byset)
         EggerObject <- mr_egger(MRInputObject, alpha = 0.05, robust = T)
         egger_result[seq, ] <- list(
           seq,
@@ -79,7 +80,8 @@ if (params$run_analysis) {
           EggerObject$CIUpper.Est,
           EggerObject$I.sq,
           EggerObject$Pleio.pval,
-          EggerObject$StdError.Est
+          EggerObject$StdError.Est,
+          motif_distance[1]
         )
       }
     }
@@ -87,7 +89,7 @@ if (params$run_analysis) {
     egger_results <- rbind(egger_results, egger_result)
     meta_result <- meta::metagen(egger_result$ce, egger_result$std)
     result[i, ] <- c(
-      tf, meta_result$TE.random, meta_result$seTE.random, meta_result$pval.random, 
+      tf, meta_result$TE.random, meta_result$seTE.random, meta_result$pval.random,
       meta_result$tau, meta_result$upper.random, meta_result$lower.random
     )
   }
@@ -103,9 +105,28 @@ if (params$run_analysis) {
 
 
 ```{r}
-egger_results <- egger_results %>% drop_na()
-egger_results$ce[1]
+egger_results <- egger_results %>% drop_na
+egger_results
 ```
+
+```{r}
+group_color <- function(dist) {
+  if (dist <= 35) {
+    return("(0, 35]")
+  } else if (dist <= 70) {
+    return("(35, 70]")
+  } else if (dist <= 150) {
+    return ("(70, 150]")
+  } else {
+    return ("(150, 1000]")
+  }
+}
+
+dist_groups <- lapply(as.numeric(egger_results[, "dist"]), group_color)
+egger_results["dist_group"] <- unlist(dist_groups)
+egger_results
+```
+
 
 
 ```{r}
@@ -126,36 +147,87 @@ plot(ce_smoothed, main = "Causal Effect Estimates (All TFs)",xlab = "Causal Effe
 
 ```
 
+
+
 ```{r}
-all_seq_ces <- egger_results[,c("seq", "tf1", "tf2", "ce")]
+all_seq_ces <- egger_results[,c("seq", "tf1", "tf2", "ce", "dist_group")]
 all_seq_ces_wide <- pivot_wider(all_seq_ces, names_from=c("tf1", "tf2"), values_from="ce")
+all_seq_ces_wide$dist_group <- factor(all_seq_ces_wide$dist_group, levels=c("(0, 35]","(35, 70]", "(70, 150]",  "(150, 1000]"))
+all_seq_ces_wide <- all_seq_ces_wide %>% arrange(dist_group)
 tfs <- list("Sox2", "Oct4", "Nanog", "Klf4")
 plots <- foreach(tf1 = tfs, tf2 = tfs) %do% {
   tf1_plots <- foreach(tf2 = tfs) %do% {
       if (tf1 != tf2) {
         x_name <- str_c(tf1, tf2, sep="_")
         y_name <- str_c(tf2, tf1, sep="_")
-        return(ggplot(data=all_seq_ces_wide, mapping=aes_string(x = x_name, y = y_name)) +
-                 geom_point(alpha=.1))
+        return(ggplot(data=all_seq_ces_wide, mapping=aes_string(x = x_name, y = y_name, colour = "dist_group")) +
+                 geom_point(alpha=.4, size = 1) +
+                 coord_equal(xlim=c(-4, 4),ylim=c(-4, 4)))
 
         }
   }
   return(tf1_plots)
 }
 
+# if (params$save_plots) {
+#   output_fname <- "bpnet_local_ce_pair_plots.png"
+#   # output_fpath <- file.path(params$fig_output_dir, output_fname)
+#   # png(output_fpath, width = 1024, height = 1024, res = 1200)
+#   # par(mar = c(5, 6, 5, 1) + .1)
+#   ggsave(output_fname, p)
+# }
+
+plots <- Filter(Negate(function(x) is.null(unlist(x))), plots)
+p <- ggarrange(plotlist=flatten(plots), common.legend = TRUE)
 if (params$save_plots) {
   output_fname <- "bpnet_local_ce_pair_plots.png"
   output_fpath <- file.path(params$fig_output_dir, output_fname)
-  png(output_fpath, width = 1024, height = 512)
-  par(mar = c(5, 6, 5, 1) + .1)
+  # png(output_fpath, width = 1024, height = 1024, res = 1200)
+  # par(mar = c(5, 6, 5, 1) + .1)
+  ggsave(output_fpath, p, width = 10, height = 10)
 }
+p
+```
 
-plots <- Filter(Negate(function(x) is.null(unlist(x))), plots)
-ggarrange(plotlist=flatten(plots))
+```{r}
+all_seq_ces_wide
+```
+
+
+```{r}
+paired_tf_egger_results <- egger_results %>% filter(tf1 == "Klf4" & tf2 == "Nanog")
+do_meta <- function (tf1, tf2, dist_group, ce, std) {
+  meta_result <- meta::metagen(ce, std)
+  return(c(
+    tf1,
+    tf2,
+    dist_group,
+    meta_result$TE.random, meta_result$seTE.random, meta_result$pval.random,
+    meta_result$tau, meta_result$upper.random, meta_result$lower.random
+  ))
+}
+meta_results <- egger_results %>% group_by(tf1, tf2, dist_group) %>% group_map(~ do_meta(.x$tf1[1], .x$tf2[1], .x$dist_group[1], .x$ce, .x$std), keep=TRUE)
+meta_results <- as.data.frame(do.call(rbind, meta_results))
+colnames(meta_results) <- c("TF1", "TF2", "Distance", "Mean", "Std", "$ p $", "tau2", "Upper", "Lower")
+
+meta_results$Distance <- factor(meta_results$Distance, levels=c("(0, 35]","(35, 70]", "(70, 150]",  "(150, 1000]"))
+meta_results <- meta_results %>% arrange(TF1, TF2, Distance)
+meta_results$Mean <- as.numeric(meta_results$Mean)
+meta_results["TFs"] <- paste(meta_results$TF1, meta_results$TF2, sep="→")
+meta_results
+```
+
+```{r}
+p <- ggplot(meta_results, aes(Distance, TFs, fill=Mean)) + geom_tile() + scale_fill_viridis_c() + theme_light()
 if (params$save_plots) {
-  dev.off()
+  output_fname <- "bpnet_motif_spacing_heatmap.png"
+  output_fpath <- file.path(params$fig_output_dir, output_fname)
+  ggsave(output_fpath)
+} else {
+  p
 }
 ```
+
 
 
 ```{r}
@@ -178,8 +250,8 @@ formatted_result$Upper <- as.numeric(as.character(formatted_result$Upper))
 
 p <- ggplot(data=formatted_result, aes(y=TF, x=Mean), width = 956, height = 432) + 
     geom_barh( aes(y=TF, x=Mean), stat="identity", fill="skyblue", alpha=0.5) +
-    geom_errorbarh( aes(xmin=Mean- 2 * sqrt(tau2), xmax=Mean+ 2 * sqrt(tau2)), colour="orange", alpha=0.9, size=1.3 ) +
-    geom_errorbarh( aes(xmin=Mean- 2 * Std, xmax=Mean+ 2 * Std), colour="blue", alpha=0.9, size=1.3 ) +
+    geom_errorbarh( aes(xmin=Mean- sqrt(tau2), xmax=Mean+ sqrt(tau2)), colour="orange", alpha=0.9, size=1.3 ) +
+    geom_errorbarh( aes(xmin=Mean- Std, xmax=Mean+ Std), colour="blue", alpha=0.9, size=1.3 ) +
     coord_fixed(ratio = .4)
 formatted_result$Lower
 p + labs(title="TF→TF Causal Effects", y="TF", x= "Effect (Mean)")+
