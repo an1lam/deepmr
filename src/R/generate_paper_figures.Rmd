@@ -158,10 +158,12 @@ results_summary <- imap(metrics_tables, function (global_metrics, name) {
   )
   true_ces_captured <- sum(true_ce_captured) / nrow(global_metrics)
   mean_calibration <- mean(unlist(global_metrics$calibration))
-  global_ces_accuracy <- cor(global_metrics$ce_est, global_metrics$true_ce_est)^2
+  global_ces_accuracy <- cor(global_metrics$ce_est, global_metrics$true_ce_est)
+  naive_est_accuracy <- cor(global_metrics$naive_est, global_metrics$true_ce_est)
   
   list(
     "Global CE Accuracy"=global_ces_accuracy,
+    "Baseline Accuracy"=naive_est_accuracy,
     "Global CE Coverage"=true_ces_captured,
     "Local CE CI Coverage"=mean_calibration
   )

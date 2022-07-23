@@ -215,6 +215,21 @@ run_mr <- function(seq_veffs, n_seqs, mr_method) {
   return(mr_results)
 }
 
+compute_baseline_ces <- function(seq_veffs, n_seqs) {
+
+  naive_ces <- c()
+
+  for (seq in (1:n_seqs)) {
+    veffs <- subset(seq_veffs, seq_num == seq)
+    if (nrow(veffs) > 2) {
+      bxt <- unlist(veffs["X_pred_mean"])
+      byt <- unlist(veffs["Y_pred_mean"])
+      naive_ces <- append(naive_ces, mean(byt / bxt))
+    }
+  }
+  return(naive_ces)
+}
+
 measure_confidence_interval_calibration <- function(cis_true_vals) {
   true_val_captured <- cis_true_vals[which(
     (cis_true_vals$true_val >= cis_true_vals$lower) & 
@@ -288,6 +303,7 @@ lapply(sim_results_dirs, function(sim_results_dir) {
     n_seqs <- max(seq_eff_sizes$seq_num)
     mr_results <- run_mr(seq_eff_sizes, n_seqs, params$mr_method)
     mr_results <- mr_results %>% drop_na()
+    naive_ces <- compute_baseline_ces(seq_eff_sizes, n_seqs)
 
     ce_key <- str_c(params$mr_method, "ce", sep=".")
     std_key <- str_c(params$mr_method, "std", sep=".")
@@ -305,6 +321,7 @@ lapply(sim_results_dirs, function(sim_results_dir) {
     sim_true_ces_fname <- str_c(exp_tf, out_tf, "true_ces.csv", sep="_")
     true_ces <- read.csv(file.path(sim_results_dir, str_c("round", sprintf("%d", i), sep="_"), sim_true_ces_fname))
     meta_result <- meta::metagen(get(ce_key, mr_results), get(std_key, mr_results))
+    naive_est <- mean(naive_ces)
   
     cis$true_val <- true_ces$CI[which(!is.na(cis$"upper"))]
     cis <- cis[!is.na(cis$true_val), ]
@@ -317,6 +334,7 @@ lapply(sim_results_dirs, function(sim_results_dir) {
       ce_lower=meta_result$lower.random,
       ce_upper=meta_result$upper.random,
       true_ce_est=mean(true_ces$CI, na.rm = T),
+      naive_est=naive_est,
       calibration=calibration
     ))
   }
