@@ -106,6 +106,30 @@ def add_args(parser):
         action="store_true",
         help="Whether to log summary statistics about the counts at the end of the simulation.",
     )
+    parser.add_argument(
+        "--tau1",
+        type=float,
+        default=25.,
+        help="Coefficient for the sequence-independent confounding term that contributes to the exposure counts."
+    )
+    parser.add_argument(
+        "--tau2",
+        type=float,
+        default=25.,
+        help="Coefficient for the sequence-independent confounding term that contributes to the outcome counts."
+    )
+    parser.add_argument(
+        "--eta",
+        type=float,
+        default=20.,
+        help="Coefficient for the sequence-dependent confounding term of that contributes to the exposure counts."
+    )
+    parser.add_argument(
+        "--nu",
+        type=float,
+        default=30.,
+        help="Coefficient for the sequence-dependent confounding term of that contributes to the outcome counts."
+    )
 
     # Model
     parser.add_argument(
@@ -265,6 +289,7 @@ if __name__ == "__main__":
     logging.info(f"Effect sizes: {effect_size_samples}")
     logging.info(f"Choices: {choices}")
     logging.info(f"Alphas: {alphas}")
+    logging.info(f"Tau (exp): {args.tau1}, Tau (out): {args.tau2}, Eta: {args.eta}, Nu: {args.nu}")
     for i, effect_size in tqdm(enumerate(effect_size_samples)):
         exp_args = copy.deepcopy(args)
         exp_args.results_dir_name = os.path.join(exp_args.results_dir_name, f"round_{i}")

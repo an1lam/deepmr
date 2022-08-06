@@ -165,7 +165,8 @@ def simulate_oracle_predictions(
     beta=100,
     eta=20,
     nu=30,
-    tau=25,
+    tau1=25,
+    tau2=25,
     exp_bias=1,
     out_bias=1,
     confounder_prob=0,
@@ -188,8 +189,8 @@ def simulate_oracle_predictions(
     if confounder_prob > 0:
         b_conf = stats.bernoulli(confounder_prob).rvs(size=len(sequences))
 
-    c_exp = exp_bias + alpha * q_exp + eta * q_conf + tau * b_conf
-    c_out = out_bias + beta * (q_exp * q_out) + nu * q_conf + tau * b_conf
+    c_exp = exp_bias + alpha * q_exp + eta * q_conf + tau1 * b_conf
+    c_out = out_bias + beta * (q_exp * q_out) + nu * q_conf + tau2 * b_conf
 
     c_exp_noisy = np.random.poisson(np.maximum(c_exp, 0), len(c_exp))
     c_out_noisy = np.random.poisson(np.maximum(c_out, 0), len(c_out))
@@ -258,6 +259,8 @@ def generate_variant_counts_and_labels(
     max_mutations_per_variant=1,
     alpha=100.0,
     beta=100.0,
+    tau1=25,
+    tau2=25,
 ):
     n_variants = int(len(sequences) * frac)
     variant_indexes = np.random.choice(
@@ -275,6 +278,8 @@ def generate_variant_counts_and_labels(
         confounder_prob=confounder_prob,
         alpha=alpha,
         beta=beta,
+        tau1=tau2,
+        tau2=tau2,
     )
     variant_labels = labels[variant_indexes].copy()
     return variants, variant_counts, variant_labels, variant_indexes
@@ -454,6 +459,7 @@ def main(args):
     train_counts = simulate_oracle_predictions(
         train_sequences, exposure_pwm, outcome_pwm, confounder_pwm=confounder_pwm,
         confounder_prob=args.confounder_prob, alpha=args.alpha, beta=args.beta,
+        tau1=args.tau1, tau2=args.tau2,
     )
     test_counts = simulate_oracle_predictions(
         test_sequences,
@@ -463,6 +469,7 @@ def main(args):
         confounder_prob=args.confounder_prob,
         alpha=args.alpha,
         beta=args.beta,
+        tau1=args.tau1, tau2=args.tau2,
     )
 
     if args.log_summary_stats:
@@ -526,6 +533,8 @@ def main(args):
             max_mutations_per_variant=args.max_mutations_per_variant,
             alpha=args.alpha,
             beta=args.beta,
+            tau1=args.tau1,
+            tau2=args.tau2,
         )
         (
             test_variants,
@@ -544,6 +553,8 @@ def main(args):
             max_mutations_per_variant=args.max_mutations_per_variant,
             alpha=args.alpha,
             beta=args.beta,
+            tau1=args.tau1,
+            tau2=args.tau2,
         )
         train_variant_df = pd.DataFrame(
             {
