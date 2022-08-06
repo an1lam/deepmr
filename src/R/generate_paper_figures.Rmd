@@ -2,7 +2,7 @@
 title: "R Notebook"
 output: html_notebook
 params:
-  save_plots: TRUE
+  save_plots: FALSE
   output_dir: "../../fig/"
 ---
 
@@ -137,9 +137,6 @@ if (params$save_plots) {
   dev.off()
 }
 ```
-```{r}
-metrics_tables
-```
 
 
 
@@ -156,13 +153,20 @@ results_summary <- imap(metrics_tables, function (global_metrics, name) {
   true_ce_captured <- (
     global_metrics$true_ce_est > ce_lower & global_metrics$true_ce_est < ce_upper
   )
+  true_ce_captured_naive <- (
+    global_metrics$true_ce_est > global_metrics$naive_mr_lower & global_metrics$true_ce_est < global_metrics$naive_mr_upper
+  )
   true_ces_captured <- sum(true_ce_captured) / nrow(global_metrics)
+  true_ce_captured_naive <- sum(true_ce_captured_naive) / nrow(global_metrics) 
   mean_calibration <- mean(unlist(global_metrics$calibration))
-  global_ces_accuracy <- cor(global_metrics$ce_est, global_metrics$true_ce_est)^2
+  global_ces_accuracy <- cor(global_metrics$ce_est, global_metrics$true_ce_est)
+  naive_est_accuracy <- cor(global_metrics$naive_est, global_metrics$true_ce_est)
   
   list(
     "Global CE Accuracy"=global_ces_accuracy,
+    "Baseline Accuracy"=naive_est_accuracy,
     "Global CE Coverage"=true_ces_captured,
+    "Baseline Global CE Coverage"=true_ce_captured_naive,
     "Local CE CI Coverage"=mean_calibration
   )
 })
@@ -172,3 +176,21 @@ names(results_df) <- gsub("\\.", " ", names(results_df))
 print(xtable(results_df, type = "latex"))
 
 ```
+
+<!-- # With IVW -->
+<!-- % latex table generated in R 4.2.1 by xtable 1.8-4 package -->
+<!-- % Sat Aug  6 08:44:44 2022 -->
+<!-- \begin{table}[ht] -->
+<!-- \centering -->
+<!-- \begin{tabular}{rrrrrr} -->
+<!--   \hline -->
+<!--  & Global CE Accuracy & Baseline Accuracy & Global CE Coverage & Baseline Global CE Coverage & Local CE CI Coverage \\  -->
+<!--   \hline -->
+<!-- Unconfounded & 1.00 & 0.99 & 1.00 & 1.00 & 0.41 \\  -->
+<!--   Random & 0.99 & 0.98 & 0.96 & 0.96 & 0.37 \\  -->
+<!--   Sequence & 0.99 & 0.99 & 0.88 & 0.86 & 0.29 \\  -->
+<!--   Both & 0.98 & 0.98 & 0.92 & 0.92 & 0.34 \\  -->
+<!--    \hline -->
+<!-- \end{tabular} -->
+<!-- \end{table} -->
+
