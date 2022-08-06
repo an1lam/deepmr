@@ -277,6 +277,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser = add_args(parser)
     args = parser.parse_args()
+    np.random.seed(args.seed)
 
     effect_size_samples, choices = sample_from_binary_mixture(
         args.mixture_nonzero_prob, 

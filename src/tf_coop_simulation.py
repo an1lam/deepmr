@@ -261,6 +261,8 @@ def generate_variant_counts_and_labels(
     beta=100.0,
     tau1=25,
     tau2=25,
+    eta=20,
+    nu=30,
 ):
     n_variants = int(len(sequences) * frac)
     variant_indexes = np.random.choice(
@@ -280,6 +282,8 @@ def generate_variant_counts_and_labels(
         beta=beta,
         tau1=tau2,
         tau2=tau2,
+        eta=eta,
+        nu=nu,
     )
     variant_labels = labels[variant_indexes].copy()
     return variants, variant_counts, variant_labels, variant_indexes
@@ -459,7 +463,7 @@ def main(args):
     train_counts = simulate_oracle_predictions(
         train_sequences, exposure_pwm, outcome_pwm, confounder_pwm=confounder_pwm,
         confounder_prob=args.confounder_prob, alpha=args.alpha, beta=args.beta,
-        tau1=args.tau1, tau2=args.tau2,
+        eta=args.eta, nu=args.nu, tau1=args.tau1, tau2=args.tau2,
     )
     test_counts = simulate_oracle_predictions(
         test_sequences,
@@ -469,7 +473,7 @@ def main(args):
         confounder_prob=args.confounder_prob,
         alpha=args.alpha,
         beta=args.beta,
-        tau1=args.tau1, tau2=args.tau2,
+        eta=args.eta, nu=args.nu, tau1=args.tau1, tau2=args.tau2,
     )
 
     if args.log_summary_stats:
@@ -535,6 +539,8 @@ def main(args):
             beta=args.beta,
             tau1=args.tau1,
             tau2=args.tau2,
+            eta=args.eta,
+            nu=args.nu,
         )
         (
             test_variants,
@@ -555,6 +561,8 @@ def main(args):
             beta=args.beta,
             tau1=args.tau1,
             tau2=args.tau2,
+            eta=args.eta,
+            nu=args.nu,
         )
         train_variant_df = pd.DataFrame(
             {
